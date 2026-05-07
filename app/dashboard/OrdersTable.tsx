@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
 import type { DoorType, Order, OrderStatus } from '@/src/types'
-import { DOOR_TYPE_LABELS } from '@/src/types'
+import { DOOR_TYPE_LABELS, ORDER_STATUS_LABELS, ORDER_STATUS_STEPS } from '@/src/types'
 import StatusSelect from './StatusSelect'
 import { exportOrdersToExcel } from './exportExcel'
 
@@ -18,15 +18,19 @@ function formatCurrency(amount: number) {
   return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount)
 }
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  siparis_alindi: 'Sipariş Alındı',
-  uretimde: 'Üretimde',
-  gonderildi: 'Gönderildi',
+
+interface StaffMember {
+  id: string
+  full_name: string | null
 }
 
 interface Props {
   orders: Order[]
   error: boolean
+  ownerNames?: Record<string, string>
+  isAdmin?: boolean
+  staffList?: StaffMember[]
+  selectedOwnerId?: string
 }
 
 // ─── Password confirmation modal ─────────────────────────────────────────────
@@ -96,7 +100,7 @@ function DeleteDialog({ count, onConfirm, onClose }: DeleteDialogProps) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function OrdersTable({ orders, error }: Props) {
+export default function OrdersTable({ orders, error, ownerNames = {}, isAdmin = false, staffList = [], selectedOwnerId = '' }: Props) {
   const router = useRouter()
 
   // Filters
@@ -218,7 +222,7 @@ export default function OrdersTable({ orders, error }: Props) {
     const rows = filtered.filter((o) => selectedIds.has(o.id))
     setExporting(true)
     try {
-      await exportOrdersToExcel(rows)
+      await exportOrdersToExcel(rows, ownerNames)
     } finally {
       setExporting(false)
     }
@@ -268,16 +272,31 @@ export default function OrdersTable({ orders, error }: Props) {
                 className={`${inputClass} w-full sm:w-44`}
               >
                 <option value="">Tüm Durumlar</option>
-                {(Object.keys(STATUS_LABELS) as OrderStatus[]).map((key) => (
-                  <option key={key} value={key}>{STATUS_LABELS[key]}</option>
+                {([...ORDER_STATUS_STEPS, 'iptal', 'siparis_alindi', 'gonderildi'] as OrderStatus[]).map((key) => (
+                  <option key={key} value={key}>{ORDER_STATUS_LABELS[key]}</option>
                 ))}
               </select>
+              {isAdmin && staffList.length > 1 && (
+                <select
+                  value={selectedOwnerId}
+                  onChange={e => {
+                    const val = e.target.value
+                    router.push(val ? `/orders?owner_id=${val}` : '/orders')
+                  }}
+                  className={`${inputClass} w-full sm:w-44`}
+                >
+                  <option value="">Tüm Satıcılar</option>
+                  {staffList.map(s => (
+                    <option key={s.id} value={s.id}>{s.full_name ?? s.id}</option>
+                  ))}
+                </select>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <span className="text-xs text-gray-400">{filtered.length} / {orders.length} sipariş</span>
               <Link
                 href="/orders/new"
-                className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
               >
                 + Yeni Sipariş
               </Link>
@@ -317,39 +336,42 @@ export default function OrdersTable({ orders, error }: Props) {
 
         {/* ── Bulk actions bar ── */}
         {selectedCount > 0 && (
-          <div className="flex flex-wrap items-center gap-3 border-b border-blue-100 bg-blue-50 px-4 py-2">
-            <span className="text-sm font-medium text-blue-700">
-              Seçilen: {selectedCount} sipariş
+          <div className="flex flex-wrap items-center gap-3 border-b border-blue-100 bg-blue-50/60 px-4 py-2.5">
+            <span className="text-sm font-semibold text-blue-700">
+              {selectedCount} sipariş seçildi
             </span>
+            <div className="h-4 w-px bg-blue-200" />
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={handleBulkArchive}
                 disabled={bulkBusy}
-                className="rounded-lg border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-200 disabled:opacity-50"
+                className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50"
               >
                 Arşivle
               </button>
-              <button
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={bulkBusy}
-                className="rounded-lg border border-red-300 bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-200 disabled:opacity-50"
-              >
-                Sil
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={bulkBusy}
+                  className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                >
+                  Sil
+                </button>
+              )}
               <button
                 onClick={handleExport}
                 disabled={exporting}
-                className="rounded-lg border border-green-300 bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-800 transition-colors hover:bg-green-200 disabled:opacity-50"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
-                {exporting ? 'Hazırlanıyor...' : 'Excel\'e Aktar'}
-              </button>
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="text-xs text-gray-400 hover:text-gray-600"
-              >
-                Seçimi temizle
+                {exporting ? 'Hazırlanıyor…' : 'Excel\'e Aktar'}
               </button>
             </div>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-auto text-xs text-gray-400 transition-colors hover:text-gray-700"
+            >
+              Temizle
+            </button>
           </div>
         )}
 
@@ -379,7 +401,7 @@ export default function OrdersTable({ orders, error }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-3">
                     <input
                       ref={selectAllRef}
@@ -390,8 +412,8 @@ export default function OrdersTable({ orders, error }: Props) {
                       className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-blue-600"
                     />
                   </th>
-                  <th className="px-4 py-3">Görsel</th>
                   <th className="px-4 py-3">Müşteri</th>
+                  <th className="px-4 py-3">Sorumlu</th>
                   <th className="px-4 py-3">Kapı Tipi</th>
                   <th className="px-4 py-3">Şehir</th>
                   <th className="px-4 py-3 text-right">Adet</th>
@@ -412,10 +434,10 @@ export default function OrdersTable({ orders, error }: Props) {
                   return (
                     <tr
                       key={order.id}
-                      className={`transition-colors hover:bg-gray-50 ${isSelected ? 'bg-blue-50/50' : ''}`}
+                      className={`transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50/80'}`}
                     >
                       {/* Checkbox */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -424,67 +446,53 @@ export default function OrdersTable({ orders, error }: Props) {
                         />
                       </td>
 
-                      {/* Görsel */}
-                      <td className="px-4 py-3">
-                        {order.image_url ? (
-                          <a href={order.image_url} target="_blank" rel="noopener noreferrer">
-                            <img
-                              src={order.image_url}
-                              alt="Sipariş görseli"
-                              className="h-10 w-10 rounded-md border border-gray-200 object-cover transition-opacity hover:opacity-75"
-                            />
-                          </a>
-                        ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50">
-                            <svg className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </div>
-                        )}
+                      {/* Müşteri */}
+                      <td className="px-4 py-3.5 font-semibold text-gray-800">{order.customer_name}</td>
+
+                      {/* Sorumlu */}
+                      <td className="px-4 py-3.5 text-xs text-gray-500">
+                        {order.owner_id ? (ownerNames[order.owner_id] ?? '—') : '—'}
                       </td>
 
-                      {/* Müşteri */}
-                      <td className="px-4 py-3 font-medium text-gray-900">{order.customer_name}</td>
-
                       {/* Kapı Tipi */}
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3.5 text-gray-500">
                         {DOOR_TYPE_LABELS[order.door_type] ?? order.door_type}
                       </td>
 
                       {/* Şehir */}
-                      <td className="px-4 py-3 text-gray-600">{order.customer_city}</td>
+                      <td className="px-4 py-3.5 text-gray-500">{order.customer_city}</td>
 
                       {/* Adet */}
-                      <td className="px-4 py-3 text-right text-gray-600">{order.quantity}</td>
+                      <td className="px-4 py-3.5 text-right text-gray-500">{order.quantity}</td>
 
                       {/* Toplam */}
-                      <td className="px-4 py-3 text-right font-medium text-gray-900">
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-800">
                         {formatCurrency(order.total_price)}
                       </td>
 
                       {/* Tarihler */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <div className="flex flex-col gap-0.5 text-xs">
                           <div>
                             <span className="text-gray-400">Sipariş:</span>{' '}
-                            <span className="text-gray-700">{formatDate(order.created_at)}</span>
+                            <span className="text-gray-600">{formatDate(order.created_at)}</span>
                           </div>
                           <div>
                             <span className="text-gray-400">Termin:</span>{' '}
-                            <span className="font-medium text-gray-800">{formatDate(order.deadline_date)}</span>
+                            <span className="font-semibold text-gray-700">{formatDate(order.deadline_date)}</span>
                           </div>
                         </div>
                       </td>
 
                       {/* Kapının Özellikleri */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <div className="flex flex-col gap-0.5 text-xs leading-5">
-                          {order.dimensions && <div><span className="text-gray-400">Ölçü:</span> <span className="text-gray-700">{order.dimensions}</span></div>}
-                          {order.lock_brand && <div><span className="text-gray-400">Kilit Markası:</span> <span className="text-gray-700">{order.lock_brand}</span></div>}
-                          {order.lock_system && <div><span className="text-gray-400">Kilit Sistemi:</span> <span className="text-gray-700">{order.lock_system}</span></div>}
-                          {order.frame_color && <div><span className="text-gray-400">Kasa Rengi:</span> <span className="text-gray-700">{order.frame_color}</span></div>}
-                          {mdfDisplay && <div><span className="text-gray-400">MDF Kalınlığı:</span> <span className="text-gray-700">{mdfDisplay}</span></div>}
-                          {order.steel_thickness && <div><span className="text-gray-400">Sac Kalınlığı:</span> <span className="text-gray-700">{order.steel_thickness}</span></div>}
+                          {order.dimensions && <div><span className="text-gray-400">Ölçü:</span> <span className="text-gray-600">{order.dimensions}</span></div>}
+                          {order.lock_brand && <div><span className="text-gray-400">Kilit:</span> <span className="text-gray-600">{order.lock_brand}</span></div>}
+                          {order.lock_system && <div><span className="text-gray-400">Sistem:</span> <span className="text-gray-600">{order.lock_system}</span></div>}
+                          {order.frame_color && <div><span className="text-gray-400">Kasa:</span> <span className="text-gray-600">{order.frame_color}</span></div>}
+                          {mdfDisplay && <div><span className="text-gray-400">MDF:</span> <span className="text-gray-600">{mdfDisplay}</span></div>}
+                          {order.steel_thickness && <div><span className="text-gray-400">Sac:</span> <span className="text-gray-600">{order.steel_thickness}</span></div>}
                           {!order.dimensions && !order.lock_brand && !order.lock_system && !order.frame_color && !mdfDisplay && !order.steel_thickness && (
                             <span className="text-gray-300">—</span>
                           )}
@@ -492,27 +500,21 @@ export default function OrdersTable({ orders, error }: Props) {
                       </td>
 
                       {/* Durum */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <StatusSelect orderId={order.id} status={order.status} />
                       </td>
 
                       {/* Eylemler */}
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1.5">
-                          <Link
-                            href={`/orders/${order.id}/edit`}
-                            className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-center text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                          >
-                            Düzenle
-                          </Link>
-                          <button
-                            onClick={() => handleArchive(order.id)}
-                            disabled={archivingId === order.id}
-                            className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:opacity-50"
-                          >
-                            {archivingId === order.id ? '...' : 'Arşivle'}
-                          </button>
-                        </div>
+                      <td className="px-4 py-3.5">
+                        <Link
+                          href={`/orders/${order.id}/edit`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50"
+                        >
+                          <svg className="h-3 w-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Düzenle
+                        </Link>
                       </td>
                     </tr>
                   )

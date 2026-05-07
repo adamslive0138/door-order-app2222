@@ -1,23 +1,12 @@
+import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/src/types'
 import type { OrderStatus } from '@/src/types'
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  siparis_alindi: 'Sipariş Alındı',
-  uretimde: 'Üretimde',
-  gonderildi: 'Gönderildi',
-}
-
-const STATUS_CLASSES: Record<OrderStatus, string> = {
-  siparis_alindi: 'bg-amber-100 text-amber-800',
-  uretimde: 'bg-blue-100 text-blue-800',
-  gonderildi: 'bg-green-100 text-green-800',
-}
-
 export default function StatusBadge({ status }: { status: OrderStatus }) {
+  const label = ORDER_STATUS_LABELS[status] ?? status
+  const color = ORDER_STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-600'
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLASSES[status]}`}
-    >
-      {STATUS_LABELS[status]}
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
+      {label}
     </span>
   )
 }

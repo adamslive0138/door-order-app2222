@@ -20,9 +20,9 @@ export default function UnarchiveButton({ orderId }: { orderId: string }) {
     <button
       onClick={handleUnarchive}
       disabled={loading}
-      className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
+      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50"
     >
-      {loading ? '...' : 'Geri Al'}
+      {loading ? '…' : 'Geri Al'}
     </button>
   )
 }

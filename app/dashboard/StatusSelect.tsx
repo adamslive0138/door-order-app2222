@@ -4,18 +4,11 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
 import type { OrderStatus } from '@/src/types'
+import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, ORDER_STATUS_STEPS } from '@/src/types'
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  siparis_alindi: 'Sipariş Alındı',
-  uretimde: 'Üretimde',
-  gonderildi: 'Gönderildi',
-}
+const SELECT_OPTIONS: OrderStatus[] = [...ORDER_STATUS_STEPS, 'iptal']
 
-const STATUS_CLASSES: Record<OrderStatus, string> = {
-  siparis_alindi: 'bg-amber-100 text-amber-800 border-amber-200',
-  uretimde: 'bg-blue-100 text-blue-800 border-blue-200',
-  gonderildi: 'bg-green-100 text-green-800 border-green-200',
-}
+const ALLOWED_STATUSES = new Set([...ORDER_STATUS_STEPS, 'iptal'])
 
 interface Props {
   orderId: string
@@ -24,40 +17,77 @@ interface Props {
 
 export default function StatusSelect({ orderId, status }: Props) {
   const router = useRouter()
-  const [current, setCurrent] = useState<OrderStatus>(status)
+  const [current] = useState<OrderStatus>(status)
   const [saving, setSaving] = useState(false)
 
-  async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const next = e.target.value as OrderStatus
-    setSaving(true)
-    setCurrent(next)
+  
+async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  try {
+    const next = e.target.value
 
-    const supabase = createClient()
-    const { error } = await supabase
+    const allowed = [
+      'beklemede',
+      'onaylandi',
+      'uretimde',
+      'hazir',
+      'sevkte',
+      'tamamlandi',
+      'iptal'
+    ]
+
+    if (next === 'tamamlandi') {
+      const confirmed = window.confirm('Bu sipariş arşive alınacak. Onaylıyor musunuz?')
+      if (!confirmed) return
+    }
+
+    if (!allowed.includes(next)) {
+      console.error('INVALID STATUS:', next)
+      return
+    }
+
+    const status = next as OrderStatus
+
+    setSaving(true)
+
+    const updateData =
+      status === 'tamamlandi'
+        ? { status: 'tamamlandi', is_archived: true }
+        : { status }
+
+    const { error } = await createClient()
       .from('orders')
-      .update({ status: next })
+      .update(updateData)
       .eq('id', orderId)
 
     if (error) {
-      console.error('[StatusSelect] update error', error)
-      setCurrent(status) // revert on failure
-    } else {
-      router.refresh()
+      console.error('UPDATE ERROR:', error)
+      alert(error.message)
+      return
     }
 
+    router.refresh()
+    window.location.reload()
+  } catch (err) {
+    console.error('CRASH:', err)
+    alert('Beklenmeyen hata oluştu')
+  } finally {
     setSaving(false)
   }
+
+  }
+
+  const colorCls = ORDER_STATUS_COLORS[current] ?? 'bg-gray-100 text-gray-600'
 
   return (
     <select
       value={current}
       onChange={handleChange}
       disabled={saving}
-      className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${STATUS_CLASSES[current]}`}
+      className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-opacity disabled:opacity-50 ${colorCls}`}
     >
-      {(Object.keys(STATUS_LABELS) as OrderStatus[]).map((s) => (
+      {SELECT_OPTIONS.map((s) => (
         <option key={s} value={s}>
-          {STATUS_LABELS[s]}
+          {ORDER_STATUS_LABELS[s]}
         </option>
       ))}
     </select>

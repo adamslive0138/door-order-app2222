@@ -1,7 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(__NEW_LINE_2d5d5dd8e091bc15__ cd:*)",
+      "Bash(sed -i \"s/\\\\.from\\(''cari''\\)/.from\\(''cariler''\\)/g\" app/cari/page.tsx \"app/cari/[id]/yeni-hareket/page.tsx\" app/cari/new/CariForm.tsx \"app/cari/[id]/page.tsx\" app/dekont/yukle/page.tsx app/orders/new/page.tsx \"app/orders/[id]/edit/page.tsx\")",
+      "Bash(ls -la c:/Users/Furkan/door-order-app/app/cari/[id]/)",
+      "Bash(grep -r \"supabase.*delete\\\\|supabase.*from.*eq.*delete\" c:/Users/Furkan/door-order-app/app --include=*.tsx --include=*.ts)",
+      "Bash(grep -rn \"CREATE TABLE.*orders\\\\|status.*orders\\\\|orders.*status\\\\|CHECK.*status\" c:/Users/Furkan/door-order-app/supabase/*.sql)",
+      "Bash(grep -rn 'CREATE TABLE.*orders\\\\b' c:/Users/Furkan/door-order-app/supabase/*.sql)",
+      "Bash(grep -rn orders.*statusb c:/Users/Furkan/door-order-app/supabase/*.sql)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx|d\\\\.ts\\)$\")",
+      "Bash(xargs cat:*)",
+      "Bash(find /c/Users/Furkan/door-order-app/supabase -name *.sql)",
+      "Bash(grep -v \"^$\")",
+      "Bash(npm list *)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\Furkan\\\\door-order-app\\\\app\\\\cari\" -Recurse -File | Where-Object {$_.Name -match \"Hareket|hareket\"})",
+      "Bash(npm run *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Furkan\\\\door-order-app\" -Recurse -Include \"*.tsx\", \"*.ts\", \"*.jsx\", \"*.js\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }
