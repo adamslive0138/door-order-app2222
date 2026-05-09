@@ -9,11 +9,12 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^148.0.0",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.2",
     "exceljs": "^4.4.0",
     "next": "16.1.7",
-    "puppeteer": "^24.42.0",
+    "puppeteer-core": "^24.43.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.8.1"
@@ -25,6 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
+    "puppeteer": "^24.43.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
