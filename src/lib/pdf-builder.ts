@@ -252,8 +252,8 @@ export function buildOrderPdfHtml(order: any, itemImagesBase64: (string | null)[
 // ── Puppeteer renderer ───────────────────────────────────────────────────────
 
 export async function renderPdf(html: string): Promise<Buffer> {
-  const { launchBrowser } = await import('./server/chromium')
-  const browser = await launchBrowser()
+  const { getBrowser } = await import('./server/chromium')
+  const browser = await getBrowser()
   try {
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: 'networkidle0' })

@@ -23,7 +23,9 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Furkan\\\\door-order-app\\\\supabase\" -Recurse -Filter \"*.sql\")",
       "Bash(npm uninstall *)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('deps:', Object.keys\\(p.dependencies\\).filter\\(k=>k.includes\\('pupp'\\)||k.includes\\('chrom'\\)\\)\\); console.log\\('devDeps:', Object.keys\\(p.devDependencies\\).filter\\(k=>k.includes\\('pupp'\\)\\)\\)\")",
-      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('deps:', JSON.stringify\\(Object.keys\\(p.dependencies\\).filter\\(k=>k.includes\\('pupp'\\)||k.includes\\('chrom'\\)\\)\\)\\); console.log\\('devDeps:', JSON.stringify\\(Object.keys\\(p.devDependencies\\).filter\\(k=>k.includes\\('pupp'\\)\\)\\)\\)\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('deps:', JSON.stringify\\(Object.keys\\(p.dependencies\\).filter\\(k=>k.includes\\('pupp'\\)||k.includes\\('chrom'\\)\\)\\)\\); console.log\\('devDeps:', JSON.stringify\\(Object.keys\\(p.devDependencies\\).filter\\(k=>k.includes\\('pupp'\\)\\)\\)\\)\")",
+      "Bash(node -e \"const p=require\\('c:/Users/Furkan/door-order-app/package.json'\\); const all={...p.dependencies,...p.devDependencies}; Object.keys\\(all\\).filter\\(k=>k.includes\\('pupp'\\)||k.includes\\('chrom'\\)\\).forEach\\(k=>console.log\\(k,all[k]\\)\\)\")",
+      "Bash(node -e \"const p=require\\('c:/Users/Furkan/door-order-app/package.json'\\); const all={...p.dependencies,...\\(p.devDependencies||{}\\)}; Object.keys\\(all\\).filter\\(k=>k.includes\\('pupp'\\)||k.includes\\('chrom'\\)\\).forEach\\(k=>console.log\\(k+':', all[k], Object.keys\\(p.dependencies||{}\\).includes\\(k\\)?'[dep]':'[devDep]'\\)\\)\")"
     ]
   }
 }
