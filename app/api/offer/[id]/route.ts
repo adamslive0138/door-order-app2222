@@ -3,8 +3,7 @@ import { createClient } from '@/src/lib/supabase/server'
 import {
   fetchLogoBase64,
   fetchItemImagesBase64,
-  buildOrderPdfHtml,
-  renderPdf,
+  buildOrderPdf,
 } from '@/src/lib/pdf-builder'
 
 export const dynamic = 'force-dynamic'
@@ -35,15 +34,13 @@ export async function GET(
     fetchItemImagesBase64(supabase, order.items ?? []),
   ])
 
-  const html = buildOrderPdfHtml(order, itemImagesBase64, logoBase64, {
+  const pdf = await buildOrderPdf(order, itemImagesBase64, logoBase64, {
     docTitle:     'Teklif',
     listTitle:    'Ürün Listesi',
     showPricing:  true,
     customerName,
     footerNote:   `Bu teklif bilgilendirme amaçlıdır. KDV (%${order.kdv_rate ?? 20}) dahildir.`,
   })
-
-  const pdf = await renderPdf(html)
   const body = new Uint8Array(pdf)
 
   return new NextResponse(body, {
