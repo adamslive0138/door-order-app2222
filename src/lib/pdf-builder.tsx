@@ -3,12 +3,20 @@
  * Do NOT import this from client components — uses @react-pdf/renderer (Node.js only).
  */
 import React from 'react'
+import path from 'path'
 import {
   Document, Page, View, Text, Image,
   StyleSheet, Font, renderToBuffer,
 } from '@react-pdf/renderer'
 import { doorTypeLabel, itemMeasurement, buildItemSpecParts, type OrderItem } from './order-item'
 
+Font.register({
+  family: 'Noto Sans',
+  fonts: [
+    { src: path.join(process.cwd(), 'public/fonts/NotoSans-Regular.ttf'), fontWeight: 'normal' },
+    { src: path.join(process.cwd(), 'public/fonts/NotoSans-Bold.ttf'),    fontWeight: 'bold'   },
+  ],
+})
 Font.registerHyphenationCallback(word => [word])
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -111,7 +119,7 @@ const C = {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 11, color: C.bodyTxt, backgroundColor: '#ffffff' },
+  page: { fontFamily: 'Noto Sans', fontSize: 11, color: C.bodyTxt, backgroundColor: '#ffffff' },
 
   // Header
   header:    { backgroundColor: C.headerBg, paddingHorizontal: 30, paddingVertical: 22, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },

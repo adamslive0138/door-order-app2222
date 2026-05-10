@@ -19,6 +19,7 @@
     "recharts": "^3.8.1"
   },
   "devDependencies": {
+    "@fontsource/noto-sans": "^5.2.10",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
