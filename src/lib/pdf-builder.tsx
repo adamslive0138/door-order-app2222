@@ -9,11 +9,6 @@ import {
 } from '@react-pdf/renderer'
 import { doorTypeLabel, itemMeasurement, buildItemSpecParts, type OrderItem } from './order-item'
 
-import { Font } from '@react-pdf/renderer'
-
-Font.register({
-  family: 'Helvetica',
-})
 Font.registerHyphenationCallback(word => [word])
 
 // ── Formatters ────────────────────────────────────────────────────────────────
