@@ -9,18 +9,10 @@ import {
 } from '@react-pdf/renderer'
 import { doorTypeLabel, itemMeasurement, buildItemSpecParts, type OrderItem } from './order-item'
 
+import { Font } from '@react-pdf/renderer'
+
 Font.register({
-  family: 'NotoSans',
-  fonts: [
-    {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5/files/noto-sans-latin-ext-400-normal.ttf',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5/files/noto-sans-latin-ext-700-normal.ttf',
-      fontWeight: 700,
-    },
-  ],
+  family: 'Helvetica',
 })
 Font.registerHyphenationCallback(word => [word])
 
@@ -124,7 +116,7 @@ const C = {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'NotoSans', fontSize: 11, color: C.bodyTxt, backgroundColor: '#ffffff' },
+  page: { fontFamily: 'Helvetica', fontSize: 11, color: C.bodyTxt, backgroundColor: '#ffffff' },
 
   // Header
   header:    { backgroundColor: C.headerBg, paddingHorizontal: 30, paddingVertical: 22, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
