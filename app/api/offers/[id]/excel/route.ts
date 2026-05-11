@@ -16,10 +16,18 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return new NextResponse('Unauthorized', { status: 401 })
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('company_id')
+    .eq('id', user.id)
+    .single()
+  if (!profile?.company_id) return new NextResponse('Unauthorized', { status: 401 })
+
   const { data: offer } = await supabase
     .from('offers')
     .select('*')
     .eq('id', id)
+    .eq('company_id', profile.company_id)
     .single()
 
   if (!offer) return new NextResponse('Not found', { status: 404 })
