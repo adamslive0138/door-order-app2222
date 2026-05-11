@@ -45,6 +45,8 @@ export default function HareketForm({ companyId, userId, cariId, cariAdi }: Prop
     }
 
     setLoading(true)
+
+    try {
     const supabase = createClient()
 
     // Tahsilat → payment_approvals (onay bekler)
@@ -59,7 +61,6 @@ export default function HareketForm({ companyId, userId, cariId, cariAdi }: Prop
           .upload(filePath, receiptFile, { upsert: false })
         if (uploadErr || !uploadData) {
           setError(`Dekont yüklenemedi: ${uploadErr?.message ?? 'Bilinmeyen hata'}`)
-          setLoading(false)
           return
         }
         receiptPath = uploadData.path
@@ -78,12 +79,10 @@ export default function HareketForm({ companyId, userId, cariId, cariAdi }: Prop
 
       if (dbError) {
         setError(`Hata: ${dbError.message}`)
-        setLoading(false)
         return
       }
 
       setSuccess('Tahsilat onaya gönderildi. Admin onayladığında cari hareketine eklenecek.')
-      setLoading(false)
       setForm({ transaction_type: 'tahsilat', amount: '', description: '', payment_method: '' })
       setReceiptFile(null)
       return
@@ -100,12 +99,16 @@ export default function HareketForm({ companyId, userId, cariId, cariAdi }: Prop
 
     if (dbError) {
       setError(`Hata: ${dbError.message}`)
-      setLoading(false)
       return
     }
 
     router.push(`/cari/${cariId}`)
     router.refresh()
+    } catch {
+      setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const isTahsilat = form.transaction_type === 'tahsilat'

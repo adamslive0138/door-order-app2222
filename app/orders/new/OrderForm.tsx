@@ -279,6 +279,7 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
 
     setLoading(true)
 
+    try {
     const supabase = createClient()
 
     // Stock availability pre-check — runs before insert so no order is created on failure
@@ -301,12 +302,10 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
 
         if (rightNeeded > 0 && rightAvail < rightNeeded) {
           setError(`Yetersiz sağ açılım stoğu:\n${stockModel.name}\nMevcut: ${rightAvail} · İstenen: ${rightNeeded}`)
-          setLoading(false)
           return
         }
         if (leftNeeded > 0 && leftAvail < leftNeeded) {
           setError(`Yetersiz sol açılım stoğu:\n${stockModel.name}\nMevcut: ${leftAvail} · İstenen: ${leftNeeded}`)
-          setLoading(false)
           return
         }
       }
@@ -417,7 +416,6 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
 
     if (dbError) {
       setError(`Hata: ${dbError.message}`)
-      setLoading(false)
       return
     }
 
@@ -429,6 +427,11 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
 
     router.push('/orders')
     router.refresh()
+    } catch {
+      setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const selectedCari = localCariler.find(c => c.id === cariId)

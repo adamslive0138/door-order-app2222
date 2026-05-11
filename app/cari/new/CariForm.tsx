@@ -143,6 +143,7 @@ export default function CariForm({ companyId, userId, userRole, staffList = [] }
 
     setLoading(true)
 
+    try {
     const supabase = createClient()
 
     let belge_url: string | null = null
@@ -155,7 +156,6 @@ export default function CariForm({ companyId, userId, userRole, staffList = [] }
 
       if (uploadError) {
         setError(`Belge yüklenemedi: ${uploadError.message}`)
-        setLoading(false)
         return
       }
       const { data: urlData } = supabase.storage.from('cari-images').getPublicUrl(path)
@@ -180,12 +180,16 @@ export default function CariForm({ companyId, userId, userRole, staffList = [] }
 
     if (dbError) {
       setError(`Hata: ${dbError.message}`)
-      setLoading(false)
       return
     }
 
     router.push('/cari')
     router.refresh()
+    } catch {
+      setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

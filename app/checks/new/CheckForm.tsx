@@ -79,6 +79,8 @@ export default function CheckForm({ companyId, userId, cariler }: Props) {
     }
 
     setLoading(true)
+
+    try {
     const supabase = createClient()
 
     const { error: dbErr } = await supabase.from('checks').insert({
@@ -102,7 +104,6 @@ export default function CheckForm({ companyId, userId, cariler }: Props) {
 
     if (dbErr) {
       setError(`Hata: ${dbErr.message}`)
-      setLoading(false)
       return
     }
 
@@ -121,6 +122,11 @@ export default function CheckForm({ companyId, userId, cariler }: Props) {
 
     router.push('/checks')
     router.refresh()
+    } catch {
+      setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const inputCls = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'

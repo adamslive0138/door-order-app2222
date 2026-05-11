@@ -72,6 +72,8 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
     }
 
     setLoading(true)
+
+    try {
     const supabase = createClient()
 
     // Upload receipt if provided
@@ -84,7 +86,6 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
         .upload(path, receiptFile, { upsert: false })
       if (uploadErr) {
         setError(`Dekont yükleme hatası: ${uploadErr.message}`)
-        setLoading(false)
         return
       }
       receiptUrl = uploadData.path
@@ -103,10 +104,8 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
       })
       if (dbErr) {
         setError(`Kayıt hatası: ${dbErr.message}`)
-        setLoading(false)
         return
       }
-      setLoading(false)
       setSubmitted(true)
       return
     }
@@ -124,12 +123,16 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
 
     if (dbErr) {
       setError(`Kayıt hatası: ${dbErr.message}`)
-      setLoading(false)
       return
     }
 
     router.push(`/finance/${type}`)
     router.refresh()
+    } catch {
+      setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // ── Render ───────────────────────────────────────────────────────────────

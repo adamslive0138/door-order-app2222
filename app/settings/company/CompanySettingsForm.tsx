@@ -54,6 +54,7 @@ export default function CompanySettingsForm({ companyId, initialSettings }: Prop
     setError(null)
     setSuccess(false)
 
+    try {
     const supabase = createClient()
     let logoPath = initialSettings?.logo_url ?? null
 
@@ -65,7 +66,6 @@ export default function CompanySettingsForm({ companyId, initialSettings }: Prop
         .upload(filePath, logoFile, { upsert: true, contentType: logoFile.type })
       if (upErr) {
         setError(`Logo yüklenemedi: ${upErr.message}`)
-        setLoading(false)
         return
       }
       logoPath = up.path
@@ -93,12 +93,15 @@ export default function CompanySettingsForm({ companyId, initialSettings }: Prop
 
     if (upsertErr) {
       setError(upsertErr.message)
-      setLoading(false)
       return
     }
 
     setSuccess(true)
-    setLoading(false)
+    } catch {
+      setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleRemoveLogo() {
