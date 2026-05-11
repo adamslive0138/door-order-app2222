@@ -63,6 +63,42 @@ export async function fetchLogoBase64(supabase: any, companyId: string): Promise
   return (await fetchDataUri(signed.signedUrl)) ?? ''
 }
 
+export interface CompanyPdfSettings {
+  company_name: string | null
+  address:      string | null
+  phone:        string | null
+  footer_note:  string | null
+  bank_info:    string | null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function fetchCompanySettingsForPdf(supabase: any, companyId: string): Promise<{ settings: CompanyPdfSettings; logoBase64: string }> {
+  const [{ data: cs }, { data: co }] = await Promise.all([
+    supabase.from('company_settings').select('*').eq('company_id', companyId).maybeSingle(),
+    supabase.from('companies').select('name, logo_url').eq('id', companyId).single(),
+  ])
+
+  const logoPath = cs?.logo_url || co?.logo_url
+  let logoBase64 = ''
+  if (logoPath) {
+    const { data: signed } = await supabase.storage
+      .from('company-logos')
+      .createSignedUrl(logoPath, 3600)
+    if (signed?.signedUrl) logoBase64 = (await fetchDataUri(signed.signedUrl)) ?? ''
+  }
+
+  return {
+    settings: {
+      company_name: cs?.company_name || co?.name || null,
+      address:      cs?.address      || null,
+      phone:        cs?.phone        || null,
+      footer_note:  cs?.footer_note  || null,
+      bank_info:    cs?.bank_info    || null,
+    },
+    logoBase64,
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchItemImagesBase64(supabase: any, items: Pick<OrderItem, 'image_path'>[]): Promise<(string | null)[]> {
   return Promise.all(
@@ -178,6 +214,11 @@ const s = StyleSheet.create({
   notesBox: { backgroundColor: C.notesBg, borderWidth: 1, borderColor: C.notesBorder, borderRadius: 6, paddingHorizontal: 14, paddingVertical: 10, marginTop: 14 },
   notesTxt: { fontSize: 10, color: C.notesTxt, lineHeight: 1.6 },
 
+  // Bank info
+  bankBox:  { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 6, paddingHorizontal: 14, paddingVertical: 10, marginTop: 10 },
+  bankLbl:  { fontSize: 9, fontWeight: 700, color: '#1e40af', marginBottom: 3 },
+  bankTxt:  { fontSize: 9.5, color: '#1e3a5f', lineHeight: 1.6 },
+
   // Footer
   footer:     { marginTop: 18, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, flexDirection: 'row', justifyContent: 'space-between' },
   footerText: { fontSize: 9, color: C.footerTxt },
@@ -190,14 +231,20 @@ function OrderPdf({
   itemImagesBase64,
   logoBase64,
   opts,
+  companySettings,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   order: any
   itemImagesBase64: (string | null)[]
   logoBase64: string
   opts: PdfBuildOptions
+  companySettings?: CompanyPdfSettings | null
 }) {
   const { docTitle, listTitle, showPricing, customerName, footerNote } = opts
+  const brandName    = companySettings?.company_name || 'Koyuncu Steel Door'
+  const brandAddress = companySettings?.address || null
+  const brandPhone   = companySettings?.phone   || null
+  const resolvedFooter = companySettings?.footer_note || footerNote
 
   const shortId     = (order.id as string).slice(0, 8).toUpperCase()
   const dateStr     = new Date().toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -222,8 +269,12 @@ function OrderPdf({
         {/* ── Header ── */}
         <View style={s.header}>
           <View>
-            <Text style={s.brand}>Koyuncu Steel Door</Text>
-            <Text style={s.tagline}>Çelik Kapı — Üretim & Satış</Text>
+            <Text style={s.brand}>{brandName}</Text>
+            {brandAddress
+              ? <Text style={s.tagline}>{brandAddress}</Text>
+              : <Text style={s.tagline}>Çelik Kapı — Üretim & Satış</Text>
+            }
+            {brandPhone ? <Text style={s.tagline}>{brandPhone}</Text> : null}
           </View>
           <View style={s.hdrRight}>
             {logoBase64 ? <Image src={logoBase64} style={s.logo} /> : null}
@@ -345,6 +396,15 @@ function OrderPdf({
             </View>
           }
 
+          {/* Bank info — teklif only */}
+          {showPricing && companySettings?.bank_info
+            ? <View style={s.bankBox}>
+                <Text style={s.bankLbl}>BANKA BİLGİLERİ</Text>
+                <Text style={s.bankTxt}>{companySettings.bank_info}</Text>
+              </View>
+            : null
+          }
+
           {/* Notes */}
           {order.notes
             ? <View style={s.notesBox}>
@@ -358,7 +418,7 @@ function OrderPdf({
 
           {/* Footer */}
           <View style={s.footer}>
-            <Text style={s.footerText}>{footerNote}</Text>
+            <Text style={s.footerText}>{resolvedFooter}</Text>
             <Text style={s.footerText}>Sipariş Ref: {shortId}</Text>
           </View>
 
@@ -376,8 +436,9 @@ export async function buildOrderPdf(
   itemImagesBase64: (string | null)[],
   logoBase64: string,
   opts: PdfBuildOptions,
+  companySettings?: CompanyPdfSettings | null,
 ): Promise<Buffer> {
-  const element = React.createElement(OrderPdf, { order, itemImagesBase64, logoBase64, opts })
+  const element = React.createElement(OrderPdf, { order, itemImagesBase64, logoBase64, opts, companySettings })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bytes   = await renderToBuffer(element as any)
   return Buffer.from(bytes)

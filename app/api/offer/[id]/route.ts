@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/src/lib/supabase/server'
 import {
-  fetchLogoBase64,
+  fetchCompanySettingsForPdf,
   fetchItemImagesBase64,
   buildOrderPdf,
 } from '@/src/lib/pdf-builder'
@@ -29,18 +29,21 @@ export async function GET(
   const cari         = order.cariler ?? {}
   const customerName = cari.name ?? order.customer_name ?? '—'
 
-  const [logoBase64, itemImagesBase64] = await Promise.all([
-    fetchLogoBase64(supabase, order.company_id),
+  const [{ settings, logoBase64 }, itemImagesBase64] = await Promise.all([
+    fetchCompanySettingsForPdf(supabase, order.company_id),
     fetchItemImagesBase64(supabase, order.items ?? []),
   ])
 
+  const footerNote = settings.footer_note
+    ?? `Bu teklif bilgilendirme amaçlıdır. KDV (%${order.kdv_rate ?? 20}) dahildir.`
+
   const pdf = await buildOrderPdf(order, itemImagesBase64, logoBase64, {
-    docTitle:     'Teklif',
-    listTitle:    'Ürün Listesi',
-    showPricing:  true,
+    docTitle:    'Teklif',
+    listTitle:   'Ürün Listesi',
+    showPricing: true,
     customerName,
-    footerNote:   `Bu teklif bilgilendirme amaçlıdır. KDV (%${order.kdv_rate ?? 20}) dahildir.`,
-  })
+    footerNote,
+  }, settings)
   const body = new Uint8Array(pdf)
 
   return new NextResponse(body, {

@@ -41,13 +41,19 @@ export default async function SettingsPage() {
               href="/settings"
               className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-900"
             >
-              Şirket Bilgileri
+              Genel
+            </Link>
+            <Link
+              href="/settings/company"
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            >
+              Şirket & PDF
             </Link>
             <Link
               href="/settings/personel"
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
             >
-              Personel Yönetimi
+              Personel
             </Link>
           </nav>
         )}
