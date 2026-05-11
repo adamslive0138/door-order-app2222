@@ -20,14 +20,30 @@ export async function syncOrderFinanceMovement(orderId: string): Promise<void> {
     : `Sipariş: ${order.customer_name} — ${order.quantity} adet`
   const transaction_date = (order.created_at as string).slice(0, 10)
 
-  await supabase.from('cari_hareketler').upsert({
-    company_id:        order.company_id,
-    cari_id:           order.cari_id,
-    transaction_type:  'alacak',
-    amount,
-    description,
-    transaction_date,
-    linked_order_id:   orderId,
-    is_auto_generated: true,
-  }, { onConflict: 'linked_order_id' })
+  // PostgREST does not resolve onConflict against partial unique indexes,
+  // so upsert would insert a second row. Use explicit select → update/insert instead.
+  const { data: existing } = await supabase
+    .from('cari_hareketler')
+    .select('id')
+    .eq('linked_order_id', orderId)
+    .eq('is_auto_generated', true)
+    .maybeSingle()
+
+  if (existing) {
+    await supabase
+      .from('cari_hareketler')
+      .update({ amount, description, transaction_date, cari_id: order.cari_id })
+      .eq('id', existing.id)
+  } else {
+    await supabase.from('cari_hareketler').insert({
+      company_id:        order.company_id,
+      cari_id:           order.cari_id,
+      transaction_type:  'alacak',
+      amount,
+      description,
+      transaction_date,
+      linked_order_id:   orderId,
+      is_auto_generated: true,
+    })
+  }
 }
