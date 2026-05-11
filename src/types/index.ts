@@ -161,6 +161,8 @@ export interface CariHareket {
   transaction_date: string | null
   receipt_url: string | null
   created_at: string
+  linked_order_id: string | null
+  is_auto_generated: boolean
 }
 
 export const CARI_TIPI_LABELS: Record<CariTipi, string> = {

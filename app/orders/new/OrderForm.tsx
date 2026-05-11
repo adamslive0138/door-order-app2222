@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/src/lib/supabase/client'
 import type { DoorType, Order } from '@/src/types'
 import type { StockModel } from '@/app/stock/StockPage'
+import { syncOrderFinanceMovement } from '@/src/lib/server/order-finance-sync'
 
 const LOCK_BRANDS = ['DAF', 'HOK', 'KALE', 'İTO', 'TURSAN'] as const
 const FRAME_COLORS = ['Antrasit', 'Beyaz', 'Siyah'] as const
@@ -67,7 +68,6 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
   const [kdvRateSelect, setKdvRateSelect] = useState(initKdvSelect)
   const [kdvRateCustom, setKdvRateCustom] = useState(initKdvCustom)
   const [cariId, setCariId] = useState(initialCariId ?? '')
-  const [cariKayitOlustur, setCariKayitOlustur] = useState(true)
   const [localCariler, setLocalCariler] = useState<CariOption[]>(cariler)
 
   // Stock model picker state
@@ -378,6 +378,7 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
     }
 
     let dbError
+    let newOrderId: string | null = null
     if (isEdit) {
       const { error } = await supabase
         .from('orders')
@@ -385,13 +386,14 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
         .eq('id', orderId)
       dbError = error
     } else {
-      const { error } = await supabase.from('orders').insert({
+      const { data: newOrder, error } = await supabase.from('orders').insert({
         ...payload,
         company_id: companyId,
         owner_id:   ownerId,
         status:     'beklemede',
-      })
+      }).select('id').single()
       dbError = error
+      newOrderId = newOrder?.id ?? null
 
       if (!error) {
         for (const item of currentItems) {
@@ -419,16 +421,10 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
       return
     }
 
-    // Create cari_hareket for new orders when a cari is linked and toggle is on.
-    if (!isEdit && cariId && cariKayitOlustur && total_price > 0) {
-      await supabase.from('cari_hareketler').insert({
-        company_id:       companyId,
-        cari_id:          cariId,
-        transaction_type: 'alacak',
-        amount:           total_price,
-        description:      `Sipariş: ${customerName} — ${form.quantity} adet`,
-        transaction_date: new Date().toISOString().slice(0, 10),
-      })
+    if (isEdit && orderId) {
+      await syncOrderFinanceMovement(orderId)
+    } else if (newOrderId) {
+      await syncOrderFinanceMovement(newOrderId)
     }
 
     router.push('/orders')
@@ -471,23 +467,6 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
                   {selectedCari.city && ` · ${selectedCari.city}`}
                 </span>
               </div>
-            )}
-
-            {selectedCari && (
-              <label className="flex cursor-pointer items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={cariKayitOlustur}
-                  onChange={e => setCariKayitOlustur(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">
-                  Cariye işle
-                  <span className="ml-1 text-gray-400">
-                    (Alacak — {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(genelToplam)})
-                  </span>
-                </span>
-              </label>
             )}
 
             {/* Quick cari creation */}

@@ -497,8 +497,13 @@ export default function HareketListesi({
                         {HAREKET_TIPI_LABELS[h.transaction_type] ?? h.transaction_type}
                       </span>
                     </td>
-                    <td className="max-w-xs truncate px-4 py-3.5 text-sm text-gray-500">
-                      {h.description ?? '—'}
+                    <td className="max-w-xs px-4 py-3.5 text-sm text-gray-500">
+                      <span className="truncate">{h.description ?? '—'}</span>
+                      {h.is_auto_generated && (
+                        <span className="ml-2 inline-flex shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">
+                          Otomatik
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3.5 text-right text-sm font-semibold">
                       {(() => {
