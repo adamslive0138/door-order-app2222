@@ -33,48 +33,54 @@ export default function TeklifButton({ orderId, companyId, existingOfferId, orde
   const [loading, setLoading] = useState(false)
 
   async function handleClick() {
+    // Navigate to existing offer page — no async, no popup blocker risk
     if (existingOfferId) {
-      window.open(`/api/offer/${orderId}`, '_blank')
+      router.push(`/offers/${existingOfferId}`)
       return
     }
 
     setLoading(true)
     const supabase = createClient()
 
-    const { data, error } = await supabase
-      .from('offers')
-      .insert({
-        company_id:          companyId,
-        order_id:            orderId,
-        cari_id:             orderData.cari_id,
-        customer_name:       orderData.customer_name,
-        customer_phone:      orderData.customer_phone || null,
-        customer_city:       orderData.customer_city || null,
-        door_type:           orderData.door_type as any,
-        dimensions:          orderData.dimensions,
-        quantity:            orderData.quantity,
-        unit_price:          orderData.unit_price,
-        notes:               orderData.notes,
-        image_url:           orderData.image_url ?? null,
-        lock_brand:          orderData.lock_brand ?? null,
-        lock_system:         orderData.lock_system ?? null,
-        frame_color:         orderData.frame_color ?? null,
-        mdf_thickness:       orderData.mdf_thickness ?? null,
-        mdf_thickness_other: orderData.mdf_thickness_other ?? null,
-        steel_thickness:     orderData.steel_thickness ?? null,
-        status:              'taslak',
-      })
-      .select('id')
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('offers')
+        .insert({
+          company_id:          companyId,
+          order_id:            orderId,
+          cari_id:             orderData.cari_id,
+          customer_name:       orderData.customer_name,
+          customer_phone:      orderData.customer_phone || null,
+          customer_city:       orderData.customer_city || null,
+          door_type:           orderData.door_type as any,
+          dimensions:          orderData.dimensions,
+          quantity:            orderData.quantity,
+          unit_price:          orderData.unit_price,
+          notes:               orderData.notes,
+          image_url:           orderData.image_url ?? null,
+          lock_brand:          orderData.lock_brand ?? null,
+          lock_system:         orderData.lock_system ?? null,
+          frame_color:         orderData.frame_color ?? null,
+          mdf_thickness:       orderData.mdf_thickness ?? null,
+          mdf_thickness_other: orderData.mdf_thickness_other ?? null,
+          steel_thickness:     orderData.steel_thickness ?? null,
+          status:              'taslak',
+        })
+        .select('id')
+        .single()
 
-    setLoading(false)
+      if (error || !data) {
+        alert('Teklif oluşturulamadı: ' + (error?.message ?? 'Bilinmeyen hata'))
+        return
+      }
 
-    if (error || !data) {
-      alert('Teklif oluşturulamadı: ' + (error?.message ?? 'Bilinmeyen hata'))
-      return
+      // Navigate to the offer page — works on all platforms including mobile
+      router.push(`/offers/${data.id}`)
+    } catch {
+      alert('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setLoading(false)
     }
-
-    window.open(`/api/offer/${orderId}`, '_blank')
   }
 
   return (

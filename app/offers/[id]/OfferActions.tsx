@@ -54,8 +54,6 @@ export default function OfferActions({
     }
   }
 
-  const printUrl = `/offers/${offerId}/print`
-
   return (
     <div className="flex flex-wrap items-center gap-2">
 
@@ -106,9 +104,8 @@ export default function OfferActions({
 
       {/* ── PDF ────────────────────────────────────────────────────────── */}
       <a
-        href={printUrl}
-        target="_blank"
-        rel="noreferrer"
+        href={`/api/offers/${offerId}/pdf`}
+        download
         className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
       >
         <svg className="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -38,7 +38,7 @@ export default async function NewHareketPage({
 
   return (
     <AppShell userEmail={user.email ?? ''}>
-      <main className="mx-auto max-w-2xl px-4 py-6">
+      <main className="mx-auto max-w-2xl px-4 py-6 pb-20 sm:pb-6">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">

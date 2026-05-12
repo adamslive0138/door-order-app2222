@@ -145,8 +145,7 @@ export default async function OrderDetailPage({ params }: Props) {
           <div className="flex items-center gap-2">
             <a
               href={`/api/offer/${order.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              download
               className="inline-flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900 transition-colors shadow-sm"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,8 +156,7 @@ export default async function OrderDetailPage({ params }: Props) {
             </a>
             <a
               href={`/api/production-guide/${order.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              download
               className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

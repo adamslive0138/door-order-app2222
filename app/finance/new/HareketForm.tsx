@@ -26,7 +26,6 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
     : null
 
   const [type,            setType]            = useState<'tahsilat' | 'odeme'>(defaultType)
-  const [cariSearch,      setCariSearch]      = useState(preselectedCari?.name ?? '')
   const [cariId,          setCariId]          = useState(preselectedCari?.id ?? '')
   const [amount,          setAmount]          = useState('')
   const [paymentMethod,   setPaymentMethod]   = useState('')
@@ -48,13 +47,6 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
       ? 'border-green-500 bg-green-50 text-green-700'
       : 'border-red-500 bg-red-50 text-red-700'
     : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50'
-
-  // ── Cari datalist approach ───────────────────────────────────────────────
-  function handleCariInput(value: string) {
-    setCariSearch(value)
-    const match = cariler.find(c => c.name === value)
-    setCariId(match ? match.id : '')
-  }
 
   // ── Submit ───────────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
@@ -211,35 +203,30 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
           <p className="text-sm font-semibold text-gray-700">Cari Seçimi</p>
         </div>
         <div className="p-5">
-          <label htmlFor="cari-search" className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="cari-select" className="mb-1.5 block text-sm font-medium text-gray-700">
             Cari <span className="text-red-500">*</span>
           </label>
-          <input
-            id="cari-search"
-            type="text"
-            list="cariler-list"
-            value={cariSearch}
-            onChange={e => handleCariInput(e.target.value)}
-            required
-            disabled={!!preselectedCari}
-            placeholder="Cari adını yazın veya seçin..."
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-          />
-          <datalist id="cariler-list">
-            {cariler.map(c => <option key={c.id} value={c.name} />)}
-          </datalist>
-          {cariSearch && !cariId && (
-            <p className="mt-1.5 text-xs text-amber-600">
-              Listeden bir cari seçiniz veya tam adını giriniz.
-            </p>
-          )}
-          {cariId && (
-            <p className="mt-1.5 flex items-center gap-1 text-xs text-green-600">
-              <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+          {preselectedCari ? (
+            <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
+              <svg className="h-4 w-4 shrink-0 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
-              Cari seçildi
-            </p>
+              <span className="flex-1 text-sm font-medium text-green-800">{preselectedCari.name}</span>
+              <span className="text-xs text-green-500">Kilitli</span>
+            </div>
+          ) : (
+            <select
+              id="cari-select"
+              value={cariId}
+              onChange={e => setCariId(e.target.value)}
+              required
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">— Cari seçin —</option>
+              {cariler.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           )}
         </div>
       </fieldset>
@@ -367,14 +354,14 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
         <button
           type="button"
           onClick={() => router.back()}
-          className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="rounded-lg border border-gray-200 px-5 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
         >
           İptal
         </button>
         <button
           type="submit"
           disabled={loading}
-          className={`flex-1 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors ${btnCls}`}
+          className={`flex-1 rounded-lg px-5 py-3 text-sm font-semibold text-white transition-colors ${btnCls}`}
         >
           {loading
             ? 'Kaydediliyor...'

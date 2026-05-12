@@ -57,7 +57,7 @@ export async function GET(
   return new NextResponse(body, {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="teklif-${id.slice(0, 8)}.pdf"`,
+      'Content-Disposition': `attachment; filename="teklif-${id.slice(0, 8)}.pdf"`,
     },
   })
 }

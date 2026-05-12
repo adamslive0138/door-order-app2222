@@ -59,7 +59,7 @@ export async function GET(
   return new NextResponse(body, {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="uretim-${id.slice(0, 8)}.pdf"`,
+      'Content-Disposition': `attachment; filename="uretim-${id.slice(0, 8)}.pdf"`,
     },
   })
 }

@@ -177,6 +177,15 @@ export default async function CariDetailPage({ params }: { params: Promise<{ id:
                 Teklif Oluştur
               </Link>
               <Link
+                href={`/finance/new?type=tahsilat&cari_id=${cari.id}`}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-green-700 transition-colors"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Tahsilat Al
+              </Link>
+              <Link
                 href={`/cari/${cari.id}/yeni-hareket`}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-700 transition-colors"
               >
