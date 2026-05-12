@@ -15,17 +15,24 @@ interface Props {
   userId: string
   cariler: CariOption[]
   defaultType: 'tahsilat' | 'odeme'
-  defaultCariId?: string
+  /** Server-validated cari to lock. Null = not provided or not found. */
+  preselectedCari?: { id: string; name: string } | null
+  /** True when a cari_id was in the URL but didn't match any company cari. */
+  invalidCariId?: boolean
 }
 
-export default function HareketForm({ companyId, userId, cariler, defaultType, defaultCariId }: Props) {
+export default function HareketForm({
+  companyId,
+  userId,
+  cariler,
+  defaultType,
+  preselectedCari = null,
+  invalidCariId = false,
+}: Props) {
   const router = useRouter()
 
-  const preselectedCari = defaultCariId
-    ? (cariler.find(c => c.id === defaultCariId) ?? null)
-    : null
-
   const [type,            setType]            = useState<'tahsilat' | 'odeme'>(defaultType)
+  // When preselectedCari is set, cariId is already populated — no dropdown needed
   const [cariId,          setCariId]          = useState(preselectedCari?.id ?? '')
   const [amount,          setAmount]          = useState('')
   const [paymentMethod,   setPaymentMethod]   = useState('')
@@ -58,6 +65,7 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
       setError('Geçerli bir tutar giriniz.')
       return
     }
+    // cariId is always set when preselectedCari exists; only empty when dropdown is shown and nothing selected
     if (!cariId) {
       setError('Listeden bir cari seçiniz.')
       return
@@ -66,60 +74,60 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
     setLoading(true)
 
     try {
-    const supabase = createClient()
+      const supabase = createClient()
 
-    // Upload receipt if provided
-    let receiptUrl: string | null = null
-    if (receiptFile) {
-      const ext = receiptFile.name.split('.').pop() ?? 'jpg'
-      const path = `${companyId}/${Date.now()}.${ext}`
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('receipts')
-        .upload(path, receiptFile, { upsert: false })
-      if (uploadErr) {
-        setError(`Dekont yükleme hatası: ${uploadErr.message}`)
+      // Upload receipt if provided
+      let receiptUrl: string | null = null
+      if (receiptFile) {
+        const ext = receiptFile.name.split('.').pop() ?? 'jpg'
+        const path = `${companyId}/${Date.now()}.${ext}`
+        const { data: uploadData, error: uploadErr } = await supabase.storage
+          .from('receipts')
+          .upload(path, receiptFile, { upsert: false })
+        if (uploadErr) {
+          setError(`Dekont yükleme hatası: ${uploadErr.message}`)
+          return
+        }
+        receiptUrl = uploadData.path
+      }
+
+      if (type === 'tahsilat') {
+        const { error: dbErr } = await supabase.from('payment_approvals').insert({
+          company_id:     companyId,
+          owner_id:       userId,
+          cari_id:        cariId,
+          amount:         amt,
+          payment_method: paymentMethod || null,
+          description:    description.trim() || null,
+          receipt_path:   receiptUrl,
+          status:         'pending',
+        })
+        if (dbErr) {
+          setError(`Kayıt hatası: ${dbErr.message}`)
+          return
+        }
+        setSubmitted(true)
         return
       }
-      receiptUrl = uploadData.path
-    }
 
-    if (type === 'tahsilat') {
-      const { error: dbErr } = await supabase.from('payment_approvals').insert({
-        company_id:     companyId,
-        owner_id:       userId,
-        cari_id:        cariId,
-        amount:         amt,
-        payment_method: paymentMethod || null,
-        description:    description.trim() || null,
-        receipt_path:   receiptUrl,
-        status:         'pending',
+      const { error: dbErr } = await supabase.from('cari_hareketler').insert({
+        company_id:       companyId,
+        cari_id:          cariId,
+        transaction_type: type,
+        amount:           amt,
+        payment_method:   paymentMethod || null,
+        transaction_date: transactionDate || null,
+        description:      description.trim() || null,
+        receipt_url:      receiptUrl,
       })
+
       if (dbErr) {
         setError(`Kayıt hatası: ${dbErr.message}`)
         return
       }
-      setSubmitted(true)
-      return
-    }
 
-    const { error: dbErr } = await supabase.from('cari_hareketler').insert({
-      company_id:       companyId,
-      cari_id:          cariId,
-      transaction_type: type,
-      amount:           amt,
-      payment_method:   paymentMethod || null,
-      transaction_date: transactionDate || null,
-      description:      description.trim() || null,
-      receipt_url:      receiptUrl,
-    })
-
-    if (dbErr) {
-      setError(`Kayıt hatası: ${dbErr.message}`)
-      return
-    }
-
-    router.push(`/finance/${type}`)
-    router.refresh()
+      router.push(`/finance/${type}`)
+      router.refresh()
     } catch {
       setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
     } finally {
@@ -206,7 +214,17 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
           <label htmlFor="cari-select" className="mb-1.5 block text-sm font-medium text-gray-700">
             Cari <span className="text-red-500">*</span>
           </label>
-          {preselectedCari ? (
+
+          {/* Invalid cari_id in URL → show error, not dropdown */}
+          {invalidCariId ? (
+            <div className="flex items-center gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
+              <svg className="h-4 w-4 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm text-red-700">Geçersiz cari. Lütfen listeden seçin.</span>
+            </div>
+          ) : preselectedCari ? (
+            /* Server-validated lock chip — cariId state is already set */
             <div className="flex items-center gap-2.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
               <svg className="h-4 w-4 shrink-0 text-green-600" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -215,6 +233,7 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
               <span className="text-xs text-green-500">Kilitli</span>
             </div>
           ) : (
+            /* No cari_id in URL — show dropdown */
             <select
               id="cari-select"
               value={cariId}
@@ -360,7 +379,7 @@ export default function HareketForm({ companyId, userId, cariler, defaultType, d
         </button>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || invalidCariId}
           className={`flex-1 rounded-lg px-5 py-3 text-sm font-semibold text-white transition-colors ${btnCls}`}
         >
           {loading

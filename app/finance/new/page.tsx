@@ -9,7 +9,7 @@ export default async function NewHareketPage({
 }: {
   searchParams: Promise<{ type?: string; cari_id?: string }>
 }) {
-  const { type: rawType, cari_id: defaultCariId } = await searchParams
+  const { type: rawType, cari_id: rawCariId } = await searchParams
   const defaultType: 'tahsilat' | 'odeme' =
     rawType === 'odeme' ? 'odeme' : 'tahsilat'
 
@@ -28,11 +28,27 @@ export default async function NewHareketPage({
 
   const companyId = profile.company_id
 
-  const { data: carilerData } = await supabase
-    .from('cariler')
-    .select('id, name')
-    .eq('company_id', companyId)
-    .order('name')
+  // Fetch dropdown list and preselected cari in parallel
+  const [{ data: carilerData }, preselectedResult] = await Promise.all([
+    supabase
+      .from('cariler')
+      .select('id, name')
+      .eq('company_id', companyId)
+      .order('name'),
+    rawCariId
+      ? supabase
+          .from('cariler')
+          .select('id, name')
+          .eq('id', rawCariId)
+          .eq('company_id', companyId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
+  // Server-validated: null means rawCariId was provided but invalid/wrong-company
+  const preselectedCari = rawCariId
+    ? (preselectedResult.data ?? null)
+    : null
 
   const isIn = defaultType === 'tahsilat'
 
@@ -72,7 +88,8 @@ export default async function NewHareketPage({
           userId={user.id}
           cariler={carilerData ?? []}
           defaultType={defaultType}
-          defaultCariId={defaultCariId}
+          preselectedCari={preselectedCari}
+          invalidCariId={rawCariId && !preselectedCari ? true : false}
         />
       </main>
     </AppShell>
