@@ -193,10 +193,10 @@ export default async function FinanceCariPage({
                             <Link href={`/cari/${r.id}`} className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors">
                               Detay
                             </Link>
-                            <Link href={`/finance/new?type=tahsilat`} className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors">
+                            <Link href={`/finance/new?type=tahsilat&cari_id=${r.id}`} className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors">
                               + Tahsilat
                             </Link>
-                            <Link href={`/finance/new?type=odeme`} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors">
+                            <Link href={`/finance/new?type=odeme&cari_id=${r.id}`} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors">
                               + Ödeme
                             </Link>
                           </div>

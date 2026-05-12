@@ -10,6 +10,7 @@ export default async function NewHareketPage({
   searchParams: Promise<{ type?: string; cari_id?: string }>
 }) {
   const { type: rawType, cari_id: rawCariId } = await searchParams
+  console.log('[finance/new] searchParams:', { type: rawType, cari_id: rawCariId })
   const defaultType: 'tahsilat' | 'odeme' =
     rawType === 'odeme' ? 'odeme' : 'tahsilat'
 
