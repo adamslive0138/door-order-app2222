@@ -50,40 +50,38 @@ export default async function OfferDetailPage({
 
   const offer: Offer = data as Offer
 
-  // ── Fetch linked data for workflow ──────────────────────────────────────────
+  // ── Fetch linked data for workflow (in parallel) ───────────────────────────
+  const [linkedOrderRes, linkedCariRes, hareketRes] = await Promise.all([
+    offer.order_id
+      ? supabase
+          .from('orders')
+          .select('id, status, customer_name, total_price, created_at')
+          .eq('id', offer.order_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
 
-  // Linked order (if offer was converted)
-  const linkedOrder = offer.order_id
-    ? await supabase
-        .from('orders')
-        .select('id, status, customer_name, total_price, created_at')
-        .eq('id', offer.order_id)
-        .single()
-        .then(r => r.data)
-    : null
+    offer.cari_id
+      ? supabase
+          .from('cariler')
+          .select('id, name')
+          .eq('id', offer.cari_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
 
-  // Linked cari
-  const linkedCari = offer.cari_id
-    ? await supabase
-        .from('cariler')
-        .select('id, name')
-        .eq('id', offer.cari_id)
-        .single()
-        .then(r => r.data)
-    : null
+    offer.cari_id
+      ? supabase
+          .from('cari_hareketler')
+          .select('id, receipt_url')
+          .eq('cari_id', offer.cari_id)
+          .eq('company_id', companyId)
+      : Promise.resolve({ data: [] as { id: string; receipt_url: string | null }[] }),
+  ])
 
-  // Cari hareket summary (has any movement? any with receipt?)
-  const hareketSummary = offer.cari_id
-    ? await supabase
-        .from('cari_hareketler')
-        .select('id, receipt_url')
-        .eq('cari_id', offer.cari_id)
-        .eq('company_id', companyId)
-        .then(r => r.data ?? [])
-    : []
-
-  const hasHareket    = hareketSummary.length > 0
-  const hasReceipt    = hareketSummary.some(h => h.receipt_url)
+  const linkedOrder    = linkedOrderRes.data
+  const linkedCari     = linkedCariRes.data
+  const hareketSummary = (hareketRes.data ?? []) as { id: string; receipt_url: string | null }[]
+  const hasHareket     = hareketSummary.length > 0
+  const hasReceipt     = hareketSummary.some(h => h.receipt_url)
 
   // ── Workflow stages ─────────────────────────────────────────────────────────
   const isApproved  = offer.status === 'kabul_edildi'

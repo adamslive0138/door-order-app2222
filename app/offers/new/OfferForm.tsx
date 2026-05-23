@@ -36,6 +36,10 @@ interface Props {
   orders?: OrderOption[]
   initialCariId?: string
   initialOrderId?: string
+  /** When opening from a specific source order, the full row — preserves image + product details. */
+  initialOrder?: OrderOption | null
+  /** When opening from a specific source cari, the full row. */
+  initialCari?: CariOption | null
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -46,12 +50,17 @@ export default function OfferForm({
   orders = [],
   initialCariId,
   initialOrderId,
+  initialOrder = null,
+  initialCari = null,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
-  const initFromCari  = initialCariId  ? cariler.find(c => c.id === initialCariId)  : null
-  const initFromOrder = initialOrderId ? orders.find(o => o.id === initialOrderId)  : null
+  // Prefer the directly-fetched row; fall back to the dropdown arrays.
+  const initFromOrder = initialOrder
+    ?? (initialOrderId ? orders.find(o => o.id === initialOrderId) ?? null : null)
+  const initFromCari  = initialCari
+    ?? (initialCariId  ? cariler.find(c => c.id === initialCariId)  ?? null : null)
 
   const [customer_name,   setCustomerName]   = useState(
     initFromOrder?.customer_name ?? initFromCari?.contact_name ?? initFromCari?.name ?? ''
@@ -70,6 +79,9 @@ export default function OfferForm({
   const [offer_text,      setOfferText]      = useState('')
   const [imageFile,       setImageFile]      = useState<File | null>(null)
   const [previewUrl,      setPreviewUrl]     = useState<string | null>(initFromOrder?.image_url ?? null)
+  // The source image URL — used when the user does not upload a new file so the
+  // new offer keeps the source order's image.
+  const [sourceImageUrl] = useState<string | null>(initFromOrder?.image_url ?? null)
   const [autoSource,      setAutoSource]     = useState<string | null>(
     initFromOrder ? `Sipariş: ${initFromOrder.customer_name}` :
     initFromCari  ? `Cari: ${initFromCari.name}` : null
@@ -111,7 +123,8 @@ export default function OfferForm({
     setError(null)
     setSaving(true)
 
-    let image_url: string | null = null
+    // Default: carry the source order's image forward. Overwritten if user uploads a new file.
+    let image_url: string | null = sourceImageUrl
 
     if (imageFile) {
       const ext  = imageFile.name.split('.').pop()
