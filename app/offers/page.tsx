@@ -27,11 +27,11 @@ export default async function OffersPage() {
 
   const { data } = await supabase
     .from('offers')
-    .select('*')
+    .select('id, customer_name, customer_city, door_type, quantity, total_price, status, created_at')
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
 
-  const offers: Offer[] = data ?? []
+  const offers = (data ?? []) as Offer[]
 
   const counts = {
     taslak:       offers.filter(o => o.status === 'taslak').length,

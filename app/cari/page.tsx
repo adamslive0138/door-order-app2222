@@ -31,7 +31,6 @@ export default async function CariPage({
   if (!profile || !profile.company_id) redirect('/onboarding')
   const companyId = profile.company_id
   const isAdmin = profile.role === 'admin'
-  console.log('[cari/page] companyId:', companyId)
 
   const { type, arsiv } = await searchParams
   const showArsiv = arsiv === '1'
@@ -48,7 +47,7 @@ export default async function CariPage({
 
   const [cariRes, hareketRes] = await Promise.all([
     cariQuery,
-    supabase.from('cari_hareketler').select('*').eq('company_id', companyId),
+    supabase.from('cari_hareketler').select('cari_id, transaction_type, amount').eq('company_id', companyId),
   ])
 
   const ownerNames: Record<string, string> = {}
@@ -63,12 +62,9 @@ export default async function CariPage({
     }
   }
 
-  console.log('[cari/page] cariRes.error:', cariRes.error)
-  console.log('[cari/page] cariRes.data count:', cariRes.data?.length ?? 'null')
-
   if (cariRes.error) notFound()
   const cariler = cariRes.data
-  const hareketler = hareketRes.data
+  const hareketler = hareketRes.data as CariHareket[] | null
 
   const cariList: Cari[] = cariler ?? []
   const hareketList: CariHareket[] = hareketler ?? []

@@ -152,16 +152,17 @@ export default async function DashboardPage() {
     { data: documentsData },
     { data: checksData },
     { data: pendingApprovalsData },
+    { data: profilesData },
   ] = await Promise.all([
     supabase
       .from('orders')
-      .select('*')
+      .select('id, customer_name, status, total_price, deadline_date, shipped_date')
       .eq('company_id', companyId)
       .or('is_archived.eq.false,is_archived.is.null')
       .order('created_at', { ascending: false }),
     supabase
       .from('cari_hareketler')
-      .select('*')
+      .select('id, cari_id, transaction_type, amount, description, created_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: true }),
     supabase
@@ -189,10 +190,13 @@ export default async function DashboardPage() {
           .eq('company_id', companyId)
           .eq('status', 'pending')
       : Promise.resolve({ data: [] }),
+    isAdmin
+      ? supabase.from('profiles').select('id, full_name').eq('company_id', companyId)
+      : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
   ])
 
-  const orders:    Order[]       = ordersData    ?? []
-  const hareketler: CariHareket[] = hareketlerData ?? []
+  const orders    = (ordersData    ?? []) as Order[]
+  const hareketler = (hareketlerData ?? []) as CariHareket[]
   const cariler                  = carilerData   ?? []
 
   // ── KPI calculations ───────────────────────────────────────────────────────
@@ -337,12 +341,7 @@ export default async function DashboardPage() {
         e.ciro += Number(o.total_price)
         map.set(o.owner_id!, e)
       }
-      const ownerIds = [...map.keys()]
-      const { data: profData } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', ownerIds)
-      const nameMap = Object.fromEntries((profData ?? []).map(p => [p.id, p.full_name ?? null]))
+      const nameMap = Object.fromEntries((profilesData ?? []).map(p => [p.id, p.full_name ?? null]))
       satisciPerf = [...map.entries()]
         .map(([owner_id, s]) => ({ owner_id, full_name: nameMap[owner_id] ?? null, siparis_sayisi: s.count, toplam_ciro: s.ciro }))
         .sort((a, b) => b.toplam_ciro - a.toplam_ciro)

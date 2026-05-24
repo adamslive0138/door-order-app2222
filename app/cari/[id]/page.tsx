@@ -49,13 +49,15 @@ export default async function CariDetailPage({ params }: { params: Promise<{ id:
 
   const companyId = profile.company_id
   const userRole = (profile.role ?? 'admin') as import('@/src/types').UserRole
-  console.log('[cari/[id]] id:', id, 'companyId:', companyId)
 
   const [cariRes, { data: hareketData }, { data: pendingData }] = await Promise.all([
-    supabase.from('cariler').select('*').eq('id', id).eq('company_id', companyId).maybeSingle(),
+    supabase
+      .from('cariler')
+      .select('id, name, cari_type, cari_status, contact_name, phone, city, tax_office, tax_number, email, address, image_url, notes, owner_id')
+      .eq('id', id).eq('company_id', companyId).maybeSingle(),
     supabase
       .from('cari_hareketler')
-      .select('*')
+      .select('id, cari_id, company_id, transaction_type, payment_method, amount, transaction_date, description, receipt_url, created_at, is_auto_generated, linked_order_id')
       .eq('cari_id', id)
       .eq('company_id', companyId)
       .order('transaction_date', { ascending: false }),
@@ -68,7 +70,6 @@ export default async function CariDetailPage({ params }: { params: Promise<{ id:
       .order('created_at', { ascending: false }),
   ])
 
-  console.log('[cari/[id]] cariRes.error:', cariRes.error, 'cariRes.data null?', cariRes.data === null)
   if (!cariRes.data) notFound()
   const cari = cariRes.data as Cari
 

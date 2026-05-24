@@ -28,7 +28,7 @@ export default async function OrdersPage({
 
   let query = supabase
     .from('orders')
-    .select('*')
+    .select('id, customer_name, customer_phone, customer_city, door_type, status, total_price, quantity, created_at, deadline_date, owner_id, dimensions, lock_brand, lock_system, frame_color, mdf_thickness, mdf_thickness_other, steel_thickness')
     .eq('company_id', companyId)
     .or('is_archived.eq.false,is_archived.is.null')
     .order('created_at', { ascending: false })
@@ -45,16 +45,21 @@ export default async function OrdersPage({
   const orders: Order[] = (ordersData ?? []) as Order[]
   const staffList = (staffRes.data ?? []) as { id: string; full_name: string | null }[]
 
-  // Build ownerNames map from the distinct owner_ids in this result set
+  // admin: staffList already contains all company profiles — derive directly, no extra query
+  // non-admin: do a targeted lookup for the owner_ids visible in their result set
   const ownerNames: Record<string, string> = {}
-  const ownerIds = [...new Set(orders.map(o => o.owner_id).filter(Boolean))] as string[]
-  if (ownerIds.length > 0) {
-    const { data: ownerProfiles } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .in('id', ownerIds)
-    for (const p of ownerProfiles ?? []) {
+  if (isAdmin) {
+    for (const p of staffList) {
       if (p.full_name) ownerNames[p.id] = p.full_name
+    }
+  } else {
+    const ownerIds = [...new Set(orders.map(o => o.owner_id).filter(Boolean))] as string[]
+    if (ownerIds.length > 0) {
+      const { data: ownerProfiles } = await supabase
+        .from('profiles').select('id, full_name').in('id', ownerIds)
+      for (const p of ownerProfiles ?? []) {
+        if (p.full_name) ownerNames[p.id] = p.full_name
+      }
     }
   }
 
