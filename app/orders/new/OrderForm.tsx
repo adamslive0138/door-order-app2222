@@ -419,14 +419,15 @@ export default function OrderForm({ companyId, userId, orderId, initialData, car
       return
     }
 
-    if (isEdit && orderId) {
-      await syncOrderFinanceMovement(orderId)
-    } else if (newOrderId) {
-      await syncOrderFinanceMovement(newOrderId)
-    }
+    try {
+      if (isEdit && orderId) {
+        await syncOrderFinanceMovement(orderId)
+      } else if (newOrderId) {
+        await syncOrderFinanceMovement(newOrderId)
+      }
+    } catch { /* sync failure is non-fatal — order is already saved */ }
 
     router.push('/orders')
-    router.refresh()
     } catch {
       setError('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.')
     } finally {
