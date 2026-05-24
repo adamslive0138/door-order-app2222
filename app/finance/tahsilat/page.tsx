@@ -43,20 +43,6 @@ export default async function TahsilatPage() {
       .order('name'),
   ])
 
-  // Sign receipt paths (private bucket — 1 h TTL)
-  const paths = (raw ?? []).map((h: any) => h.receipt_url).filter(Boolean) as string[]
-  let signedMap: Record<string, string> = {}
-  if (paths.length > 0) {
-    const { data: signed } = await supabase.storage
-      .from('receipts')
-      .createSignedUrls(paths, 3600)
-    if (signed) {
-      for (const s of signed) {
-        if (s.signedUrl && s.path) signedMap[s.path] = s.signedUrl
-      }
-    }
-  }
-
   const hareketler: HareketRow[] = (raw ?? []).map((h: any) => ({
     id:               h.id,
     cari_id:          h.cari_id,
@@ -66,7 +52,7 @@ export default async function TahsilatPage() {
     payment_method:   h.payment_method,
     transaction_date: h.transaction_date,
     description:      h.description,
-    receipt_url:      h.receipt_url ? (signedMap[h.receipt_url] ?? null) : null,
+    receipt_url:      h.receipt_url ?? null,
     created_at:       h.created_at,
   }))
 

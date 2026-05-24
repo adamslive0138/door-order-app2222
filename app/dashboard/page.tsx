@@ -153,6 +153,7 @@ export default async function DashboardPage() {
     { data: checksData },
     { data: pendingApprovalsData },
     { data: profilesData },
+    { data: perfOrdersData },
   ] = await Promise.all([
     supabase
       .from('orders')
@@ -193,6 +194,9 @@ export default async function DashboardPage() {
     isAdmin
       ? supabase.from('profiles').select('id, full_name').eq('company_id', companyId)
       : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+    isAdmin
+      ? supabase.from('orders').select('owner_id, total_price').eq('company_id', companyId).not('owner_id', 'is', null)
+      : Promise.resolve({ data: [] as { owner_id: string | null; total_price: number | null }[] }),
   ])
 
   const orders    = (ordersData    ?? []) as Order[]
@@ -327,15 +331,9 @@ export default async function DashboardPage() {
   let satisciPerf: SatisciPerf[] = []
 
   if (isAdmin) {
-    const { data: perfOrders } = await supabase
-      .from('orders')
-      .select('owner_id, total_price')
-      .eq('company_id', companyId)
-      .not('owner_id', 'is', null)
-
-    if (perfOrders?.length) {
+    if (perfOrdersData?.length) {
       const map = new Map<string, { count: number; ciro: number }>()
-      for (const o of perfOrders) {
+      for (const o of perfOrdersData) {
         const e = map.get(o.owner_id!) ?? { count: 0, ciro: 0 }
         e.count++
         e.ciro += Number(o.total_price)

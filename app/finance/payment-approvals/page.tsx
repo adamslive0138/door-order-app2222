@@ -31,24 +31,21 @@ export default async function PaymentApprovalsPage() {
     .eq('company_id', profile.company_id)
     .order('created_at', { ascending: false })
 
-  console.log('PAYMENT APPROVALS:', rows, 'ERROR:', rowsError)
-
   const approvals = (rows ?? []) as any[]
 
-  // Generate signed URLs for receipts
-  const withUrls = await Promise.all(
-    approvals.map(async (a) => {
-      if (!a.receipt_path) return { ...a, receipt_url: null }
-      try {
-        const { data } = await admin.storage
-          .from('receipts')
-          .createSignedUrl(a.receipt_path, 60 * 60)
-        return { ...a, receipt_url: data?.signedUrl ?? null }
-      } catch {
-        return { ...a, receipt_url: null }
-      }
-    })
-  )
+  // Batch-sign all receipt paths in a single API call
+  const receiptPaths = approvals.map((a) => a.receipt_path).filter(Boolean) as string[]
+  const signedMap: Record<string, string> = {}
+  if (receiptPaths.length > 0) {
+    const { data: signed } = await admin.storage.from('receipts').createSignedUrls(receiptPaths, 3600)
+    for (const s of signed ?? []) {
+      if (s.signedUrl && s.path) signedMap[s.path] = s.signedUrl
+    }
+  }
+  const withUrls = approvals.map((a) => ({
+    ...a,
+    receipt_url: a.receipt_path ? (signedMap[a.receipt_path] ?? null) : null,
+  }))
 
   const pending  = withUrls.filter(a => a.status === 'pending')
   const resolved = withUrls.filter(a => a.status !== 'pending')

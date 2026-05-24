@@ -42,7 +42,7 @@ export default async function FinanceCariPage({
 
   let carilerQuery = supabase
     .from('cariler')
-    .select('id, company_id, cari_type, name, contact_name, phone, city, address, tax_office, tax_number, notes, image_url, owner_id, created_at, updated_at')
+    .select('id, cari_type, name, contact_name, owner_id')
     .eq('company_id', companyId)
     .order('name')
 
@@ -52,7 +52,7 @@ export default async function FinanceCariPage({
     carilerQuery,
     supabase
       .from('cari_hareketler')
-      .select('id, company_id, cari_id, transaction_type, payment_method, amount, transaction_date, description, receipt_url, created_at')
+      .select('cari_id, transaction_type, amount')
       .eq('company_id', companyId),
     isAdmin
       ? supabase.from('profiles').select('id, full_name').eq('company_id', companyId).order('full_name')
@@ -81,7 +81,7 @@ export default async function FinanceCariPage({
       }
     }
   }
-  const hareketler: CariHareket[] = (hareketlerRaw ?? []) as CariHareket[]
+  const hareketler = (hareketlerRaw ?? []) as unknown as CariHareket[]
 
   const rows = cariler.map(c => {
     const mine = hareketler.filter(h => h.cari_id === c.id)

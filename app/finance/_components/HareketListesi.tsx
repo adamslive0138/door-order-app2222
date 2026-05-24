@@ -545,12 +545,14 @@ export default function HareketListesi({ hareketler, cariler, type, newHref, use
                         </td>
                         <td className="px-3 py-3.5">
                           <div className="flex items-center justify-end gap-1">
-                            {/* Dekont görüntüle */}
+                            {/* Dekont görüntüle — sign URL on demand to avoid blocking page load */}
                             {h.receipt_url && (
-                              <a
-                                href={h.receipt_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                              <button
+                                onClick={async () => {
+                                  const sb = createClient()
+                                  const { data } = await sb.storage.from('receipts').createSignedUrl(h.receipt_url!, 3600)
+                                  if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+                                }}
                                 title="Dekontu görüntüle"
                                 className="inline-flex items-center rounded-lg border border-gray-200 p-1.5 text-gray-400 transition-colors hover:bg-gray-50 hover:text-blue-600"
                               >
@@ -558,7 +560,7 @@ export default function HareketListesi({ hareketler, cariler, type, newHref, use
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                 </svg>
-                              </a>
+                              </button>
                             )}
                             {/* Düzenle */}
                             {canEdit && (
