@@ -167,7 +167,20 @@ export default async function OrderDetailPage({ params }: Props) {
             </a>
             <TeklifButton
               orderId={order.id}
+              companyId={companyId}
               existingOfferId={sourceOffer?.id ?? null}
+              orderData={{
+                cari_id:        order.cari_id,
+                customer_name:  order.customer_name,
+                customer_phone: order.customer_phone ?? null,
+                customer_city:  order.customer_city  ?? null,
+                door_type:      order.door_type,
+                dimensions:     order.dimensions,
+                quantity:       order.quantity,
+                unit_price:     order.unit_price,
+                notes:          order.notes,
+                image_url:      order.image_url,
+              }}
             />
             <Link
               href={`/orders/${order.id}/edit`}
