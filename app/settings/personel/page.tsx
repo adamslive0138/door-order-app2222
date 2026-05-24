@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/src/lib/supabase/server'
+import { createAdminClient } from '@/src/lib/supabase/admin'
 import AppShell from '@/app/components/AppShell'
 import PersonelForm from './PersonelForm'
-import ShifreDegistir from './ShifreDegistir'
+import UserActions from './UserActions'
 
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Admin',
@@ -31,22 +32,24 @@ export default async function PersonelPage() {
   if (profile.role !== 'admin') redirect('/settings')
 
   const companyId = profile.company_id
+  const admin = createAdminClient()
 
-  const [companyRes, personelRes] = await Promise.all([
-    supabase
-      .from('companies')
-      .select('name, code')
-      .eq('id', companyId)
-      .single(),
-    supabase
-      .from('profiles')
-      .select('id, full_name, username, role, created_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: true }),
+  const [companyRes, personelRes, authUsersRes] = await Promise.all([
+    supabase.from('companies').select('name, code').eq('id', companyId).single(),
+    supabase.from('profiles').select('id, full_name, username, role, created_at').eq('company_id', companyId).order('created_at', { ascending: true }),
+    admin.auth.admin.listUsers({ perPage: 1000 }),
   ])
 
   const company  = companyRes.data
   const personel = personelRes.data ?? []
+
+  // Build banned set from auth users list
+  const now = new Date()
+  const bannedSet = new Set(
+    (authUsersRes.data?.users ?? [])
+      .filter(u => u.banned_until && new Date(u.banned_until) > now)
+      .map(u => u.id)
+  )
 
   return (
     <AppShell userEmail={user.email ?? ''}>
@@ -56,16 +59,10 @@ export default async function PersonelPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Ayarlar</h1>
           <nav className="mt-3 flex gap-1">
-            <Link
-              href="/settings"
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-            >
+            <Link href="/settings" className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors">
               Şirket Bilgileri
             </Link>
-            <Link
-              href="/settings/personel"
-              className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-900"
-            >
+            <Link href="/settings/personel" className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-900">
               Personel Yönetimi
             </Link>
           </nav>
@@ -101,41 +98,54 @@ export default async function PersonelPage() {
                   <th className="px-5 py-3 text-left">Ad Soyad</th>
                   <th className="px-5 py-3 text-left">Kullanıcı Adı</th>
                   <th className="px-5 py-3 text-left">Rol</th>
+                  <th className="px-5 py-3 text-left">Durum</th>
                   <th className="px-5 py-3 text-left">Oluşturulma</th>
                   <th className="px-5 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {personel.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 font-medium text-gray-900">
-                      {p.full_name ?? <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-5 py-3 font-mono text-gray-700">
-                      {p.username ?? <span className="text-gray-400">—</span>}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          ROLE_COLOR[p.role ?? ''] ?? 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {ROLE_LABEL[p.role ?? ''] ?? p.role ?? '—'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-gray-500">
-                      {p.created_at
-                        ? new Date(p.created_at).toLocaleDateString('tr-TR')
-                        : '—'}
-                    </td>
-                    <td className="px-5 py-3">
-                      <ShifreDegistir userId={p.id} fullName={p.full_name ?? null} />
-                    </td>
-                  </tr>
-                ))}
+                {personel.map((p) => {
+                  const isActive = !bannedSet.has(p.id)
+                  const isSelf = p.id === user.id
+                  const isUserAdmin = p.role === 'admin'
+                  return (
+                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3 font-medium text-gray-900">
+                        {p.full_name ?? <span className="text-gray-400">—</span>}
+                        {isSelf && <span className="ml-1.5 text-xs text-gray-400">(siz)</span>}
+                      </td>
+                      <td className="px-5 py-3 font-mono text-gray-700">
+                        {p.username ?? <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${ROLE_COLOR[p.role ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
+                          {ROLE_LABEL[p.role ?? ''] ?? p.role ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {isActive ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-gray-500">
+                        {p.created_at ? new Date(p.created_at).toLocaleDateString('tr-TR') : '—'}
+                      </td>
+                      <td className="px-5 py-3">
+                        <UserActions
+                          userId={p.id}
+                          fullName={p.full_name ?? null}
+                          username={p.username ?? null}
+                          isActive={isActive}
+                          isSelf={isSelf}
+                          isAdmin={isUserAdmin}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
                 {personel.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-6 text-center text-sm text-gray-400">
+                    <td colSpan={6} className="px-5 py-6 text-center text-sm text-gray-400">
                       Henüz personel bulunmuyor.
                     </td>
                   </tr>
