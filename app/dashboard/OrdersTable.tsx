@@ -117,6 +117,7 @@ export default function OrdersTable({ orders, error, ownerNames = {}, isAdmin = 
   // Bulk operation state
   const [bulkBusy, setBulkBusy] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [pdfBusy, setPdfBusy] = useState<'uretim' | 'teklif' | null>(null)
   const [archivingId, setArchivingId] = useState<string | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
@@ -225,6 +226,37 @@ export default function OrdersTable({ orders, error, ownerNames = {}, isAdmin = 
       await exportOrdersToExcel(rows, ownerNames)
     } finally {
       setExporting(false)
+    }
+  }
+
+  // ── Bulk PDF download ─────────────────────────────────────────────────────
+  async function handleBulkPdf(type: 'uretim' | 'teklif') {
+    if (!selectedCount) return
+    setPdfBusy(type)
+    try {
+      const res = await fetch(`/api/bulk-pdf/${type}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selectedIds] }),
+      })
+      if (!res.ok) {
+        console.error('[bulk-pdf] failed', res.status)
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const date = new Date().toISOString().slice(0, 10)
+      a.href = url
+      a.download = type === 'uretim' ? `uretim-toplu-${date}.pdf` : `teklifler-${date}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('[bulk-pdf] error', err)
+    } finally {
+      setPdfBusy(null)
     }
   }
 
@@ -364,6 +396,20 @@ export default function OrdersTable({ orders, error, ownerNames = {}, isAdmin = 
                 className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
                 {exporting ? 'Hazırlanıyor…' : 'Excel\'e Aktar'}
+              </button>
+              <button
+                onClick={() => handleBulkPdf('teklif')}
+                disabled={!!pdfBusy}
+                className="rounded-lg border border-green-200 bg-white px-3 py-1.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-50 disabled:opacity-50"
+              >
+                {pdfBusy === 'teklif' ? 'PDF hazırlanıyor…' : 'Toplu Teklif PDF'}
+              </button>
+              <button
+                onClick={() => handleBulkPdf('uretim')}
+                disabled={!!pdfBusy}
+                className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 disabled:opacity-50"
+              >
+                {pdfBusy === 'uretim' ? 'PDF hazırlanıyor…' : 'Toplu Üretim PDF'}
               </button>
             </div>
             <button

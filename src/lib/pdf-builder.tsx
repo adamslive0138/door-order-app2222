@@ -117,6 +117,52 @@ export async function fetchItemImagesBase64(supabase: any, items: Pick<OrderItem
   )
 }
 
+/**
+ * Batch-sign all image paths across multiple orders in ONE storage API call,
+ * then fetch all data URIs in parallel. Returns a 2-D array [orderIdx][itemIdx].
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function fetchBulkItemImagesBase64(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  allOrders: { items: Pick<OrderItem, 'image_path'>[] }[],
+): Promise<(string | null)[][]> {
+  type PathRef = { orderIdx: number; itemIdx: number; path: string }
+  const pathRefs: PathRef[] = []
+
+  for (let oi = 0; oi < allOrders.length; oi++) {
+    const items = allOrders[oi].items ?? []
+    for (let ii = 0; ii < items.length; ii++) {
+      const p = items[ii].image_path
+      if (p) pathRefs.push({ orderIdx: oi, itemIdx: ii, path: p })
+    }
+  }
+
+  // Initialize result grid with nulls
+  const result: (string | null)[][] = allOrders.map((o) => (o.items ?? []).map(() => null))
+
+  if (pathRefs.length === 0) return result
+
+  // Single batch sign call
+  const { data: signed } = await supabase.storage
+    .from('order-images')
+    .createSignedUrls(pathRefs.map((r) => r.path), 3600)
+
+  const signedUrls = (signed ?? []).map((s: { signedUrl: string | null }) => s.signedUrl ?? null)
+
+  // Fetch all data URIs in parallel
+  const dataUris = await Promise.all(
+    signedUrls.map((url: string | null) => (url ? fetchDataUri(url) : Promise.resolve(null))),
+  )
+
+  // Map back to 2-D result grid
+  pathRefs.forEach((ref, i) => {
+    result[ref.orderIdx][ref.itemIdx] = dataUris[i]
+  })
+
+  return result
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface PdfBuildOptions {
@@ -125,6 +171,13 @@ export interface PdfBuildOptions {
   showPricing:  boolean
   customerName: string
   footerNote:   string
+}
+
+export interface BulkOrderEntry {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any
+  itemImagesBase64: (string | null)[]
+  customerName: string
 }
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -188,10 +241,10 @@ const s = StyleSheet.create({
   // Column widths — A4 content width: 595 − 60 = 535pt
   colNo:    { width: 20 },
   colImg:   { width: 76 },
-  colType:  { flex: 1 },         // fills remaining space
+  colType:  { flex: 1 },
   colDim:   { width: 92 },
-  colR:     { width: 36 },       // right count (production only)
-  colL:     { width: 36 },       // left count  (production only)
+  colR:     { width: 36 },
+  colL:     { width: 36 },
   colQty:   { width: 36 },
   colPrice: { width: 72 },
   colTotal: { width: 80 },
@@ -224,9 +277,9 @@ const s = StyleSheet.create({
   footerText: { fontSize: 9, color: C.footerTxt },
 })
 
-// ── PDF Component ─────────────────────────────────────────────────────────────
+// ── Shared page component (reused by single and bulk renderers) ───────────────
 
-function OrderPdf({
+function OrderPage({
   order,
   itemImagesBase64,
   logoBase64,
@@ -263,172 +316,228 @@ function OrderPdf({
   const genelToplam = araToplam + kdv
 
   return (
-    <Document>
-      <Page size="A4" style={s.page}>
+    <Page size="A4" style={s.page}>
 
-        {/* ── Header ── */}
-        <View style={s.header}>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <View>
+          <Text style={s.brand}>{brandName}</Text>
+          {brandAddress
+            ? <Text style={s.tagline}>{brandAddress}</Text>
+            : <Text style={s.tagline}>Çelik Kapı — Üretim & Satış</Text>
+          }
+          {brandPhone ? <Text style={s.tagline}>{brandPhone}</Text> : null}
+        </View>
+        <View style={s.hdrRight}>
+          {logoBase64 ? <Image src={logoBase64} style={s.logo} /> : null}
           <View>
-            <Text style={s.brand}>{brandName}</Text>
-            {brandAddress
-              ? <Text style={s.tagline}>{brandAddress}</Text>
-              : <Text style={s.tagline}>Çelik Kapı — Üretim & Satış</Text>
-            }
-            {brandPhone ? <Text style={s.tagline}>{brandPhone}</Text> : null}
-          </View>
-          <View style={s.hdrRight}>
-            {logoBase64 ? <Image src={logoBase64} style={s.logo} /> : null}
-            <View>
-              <Text style={s.docLabel}>{docTitle}</Text>
-              <Text style={s.docRef}>#{shortId}  ·  {dateStr}</Text>
-            </View>
+            <Text style={s.docLabel}>{docTitle}</Text>
+            <Text style={s.docRef}>#{shortId}  ·  {dateStr}</Text>
           </View>
         </View>
+      </View>
 
-        {/* ── Content ── */}
-        <View style={s.content}>
+      {/* ── Content ── */}
+      <View style={s.content}>
 
-          {/* Customer box */}
-          <View style={s.customerBox}>
-            <Text style={s.customerName}>{customerName}</Text>
-            {customerCity ? <Text style={s.customerMeta}>{customerCity}</Text> : null}
-            {deadlineStr
-              ? <View style={s.deadlineTag}><Text style={s.deadlineTxt}>Termin: {deadlineStr}</Text></View>
-              : null}
+        {/* Customer box */}
+        <View style={s.customerBox}>
+          <Text style={s.customerName}>{customerName}</Text>
+          {customerCity ? <Text style={s.customerMeta}>{customerCity}</Text> : null}
+          {deadlineStr
+            ? <View style={s.deadlineTag}><Text style={s.deadlineTxt}>Termin: {deadlineStr}</Text></View>
+            : null}
+        </View>
+
+        {/* Section title */}
+        <Text style={s.secTitle}>{listTitle}</Text>
+
+        {/* Items table */}
+        <View>
+          {/* Header row */}
+          <View style={s.tblHead}>
+            <Text style={[s.th, s.colNo]}>#</Text>
+            <Text style={[s.th, s.colImg]}>Görsel</Text>
+            <Text style={[s.th, s.colType]}>Kapı Tipi</Text>
+            <Text style={[s.th, s.colDim]}>Ölçü</Text>
+            {showPricing
+              ? <>
+                  <Text style={[s.th, s.colQty,   { textAlign: 'right' }]}>Adet</Text>
+                  <Text style={[s.th, s.colPrice, { textAlign: 'right' }]}>B.Fiyat</Text>
+                  <Text style={[s.th, s.colTotal, { textAlign: 'right' }]}>Toplam</Text>
+                </>
+              : <>
+                  <Text style={[s.th, s.colR,   { textAlign: 'right' }]}>Sağ</Text>
+                  <Text style={[s.th, s.colL,   { textAlign: 'right' }]}>Sol</Text>
+                  <Text style={[s.th, s.colQty, { textAlign: 'right' }]}>Adet</Text>
+                </>
+            }
           </View>
 
-          {/* Section title */}
-          <Text style={s.secTitle}>{listTitle}</Text>
+          {/* Data rows */}
+          {items.length === 0
+            ? <View style={s.tblRow}>
+                <Text style={[s.td, { color: '#9ca3af', flex: 1 }]}>Ürün girilmemiş</Text>
+              </View>
+            : items.map((it, i) => {
+                const label   = doorTypeLabel(it.door_type)
+                const dims    = itemMeasurement(it)
+                const qty     = Number(it.quantity)            || 0
+                const price   = Number(it.unit_price)          || 0
+                const sagAdet = Number(it.right_opening_count) || null
+                const solAdet = Number(it.left_opening_count)  || null
+                const imgSrc  = itemImagesBase64[i] ?? null
+                const specs   = buildItemSpecParts(it)
 
-          {/* Items table */}
-          <View>
-            {/* Header row */}
-            <View style={s.tblHead}>
-              <Text style={[s.th, s.colNo]}>#</Text>
-              <Text style={[s.th, s.colImg]}>Görsel</Text>
-              <Text style={[s.th, s.colType]}>Kapı Tipi</Text>
-              <Text style={[s.th, s.colDim]}>Ölçü</Text>
-              {showPricing
-                ? <>
-                    <Text style={[s.th, s.colQty,   { textAlign: 'right' }]}>Adet</Text>
-                    <Text style={[s.th, s.colPrice, { textAlign: 'right' }]}>B.Fiyat</Text>
-                    <Text style={[s.th, s.colTotal, { textAlign: 'right' }]}>Toplam</Text>
-                  </>
-                : <>
-                    <Text style={[s.th, s.colR,   { textAlign: 'right' }]}>Sağ</Text>
-                    <Text style={[s.th, s.colL,   { textAlign: 'right' }]}>Sol</Text>
-                    <Text style={[s.th, s.colQty, { textAlign: 'right' }]}>Adet</Text>
-                  </>
-              }
-            </View>
-
-            {/* Data rows */}
-            {items.length === 0
-              ? <View style={s.tblRow}>
-                  <Text style={[s.td, { color: '#9ca3af', flex: 1 }]}>Ürün girilmemiş</Text>
-                </View>
-              : items.map((it, i) => {
-                  const label   = doorTypeLabel(it.door_type)
-                  const dims    = itemMeasurement(it)
-                  const qty     = Number(it.quantity)            || 0
-                  const price   = Number(it.unit_price)          || 0
-                  const sagAdet = Number(it.right_opening_count) || null
-                  const solAdet = Number(it.left_opening_count)  || null
-                  const imgSrc  = itemImagesBase64[i] ?? null
-                  const specs   = buildItemSpecParts(it)
-
-                  return (
-                    <View key={i} style={s.tblRow} wrap={false}>
-                      <View style={[s.td, s.colNo]}>
-                        <Text style={s.itNo}>{i + 1}</Text>
-                      </View>
-                      <View style={[s.td, s.colImg]}>
-                        {imgSrc
-                          ? <Image src={imgSrc} style={s.itemImg} />
-                          : <View style={s.imgBox} />
-                        }
-                      </View>
-                      <View style={[s.td, s.colType]}>
-                        <Text style={s.itType}>{label}</Text>
-                        {specs.length > 0 &&
-                          <Text style={s.itSpec}>{specs.join('  ·  ')}</Text>
-                        }
-                      </View>
-                      <View style={[s.td, s.colDim]}>
-                        <Text style={s.itDim}>{dims}</Text>
-                      </View>
-                      {showPricing
-                        ? <>
-                            <View style={[s.td, s.colQty]}>
-                              <Text style={{ textAlign: 'right' }}>{qty}</Text>
-                            </View>
-                            <View style={[s.td, s.colPrice]}>
-                              <Text style={{ textAlign: 'right' }}>{fmt(price)}</Text>
-                            </View>
-                            <View style={[s.td, s.colTotal]}>
-                              <Text style={[s.itBold, { textAlign: 'right' }]}>{fmt(qty * price)}</Text>
-                            </View>
-                          </>
-                        : <>
-                            <View style={[s.td, s.colR]}>
-                              <Text style={{ textAlign: 'right' }}>{sagAdet ?? '-'}</Text>
-                            </View>
-                            <View style={[s.td, s.colL]}>
-                              <Text style={{ textAlign: 'right' }}>{solAdet ?? '-'}</Text>
-                            </View>
-                            <View style={[s.td, s.colQty]}>
-                              <Text style={[s.itBold, { textAlign: 'right' }]}>{qty}</Text>
-                            </View>
-                          </>
+                return (
+                  <View key={i} style={s.tblRow} wrap={false}>
+                    <View style={[s.td, s.colNo]}>
+                      <Text style={s.itNo}>{i + 1}</Text>
+                    </View>
+                    <View style={[s.td, s.colImg]}>
+                      {imgSrc
+                        ? <Image src={imgSrc} style={s.itemImg} />
+                        : <View style={s.imgBox} />
                       }
                     </View>
-                  )
-                })
-            }
-          </View>
-
-          {/* Pricing block */}
-          {showPricing &&
-            <View style={s.pricingWrap}>
-              <Text style={s.prRow}>Ara Toplam: {fmt(araToplam)}</Text>
-              <Text style={s.prRow}>KDV (%{kdvRate}): {fmt(kdv)}</Text>
-              <Text style={s.prTotal}>Genel Toplam: {fmt(genelToplam)}</Text>
-            </View>
+                    <View style={[s.td, s.colType]}>
+                      <Text style={s.itType}>{label}</Text>
+                      {specs.length > 0 &&
+                        <Text style={s.itSpec}>{specs.join('  ·  ')}</Text>
+                      }
+                    </View>
+                    <View style={[s.td, s.colDim]}>
+                      <Text style={s.itDim}>{dims}</Text>
+                    </View>
+                    {showPricing
+                      ? <>
+                          <View style={[s.td, s.colQty]}>
+                            <Text style={{ textAlign: 'right' }}>{qty}</Text>
+                          </View>
+                          <View style={[s.td, s.colPrice]}>
+                            <Text style={{ textAlign: 'right' }}>{fmt(price)}</Text>
+                          </View>
+                          <View style={[s.td, s.colTotal]}>
+                            <Text style={[s.itBold, { textAlign: 'right' }]}>{fmt(qty * price)}</Text>
+                          </View>
+                        </>
+                      : <>
+                          <View style={[s.td, s.colR]}>
+                            <Text style={{ textAlign: 'right' }}>{sagAdet ?? '-'}</Text>
+                          </View>
+                          <View style={[s.td, s.colL]}>
+                            <Text style={{ textAlign: 'right' }}>{solAdet ?? '-'}</Text>
+                          </View>
+                          <View style={[s.td, s.colQty]}>
+                            <Text style={[s.itBold, { textAlign: 'right' }]}>{qty}</Text>
+                          </View>
+                        </>
+                    }
+                  </View>
+                )
+              })
           }
-
-          {/* Bank info — teklif only */}
-          {showPricing && companySettings?.bank_info
-            ? <View style={s.bankBox}>
-                <Text style={s.bankLbl}>BANKA BİLGİLERİ</Text>
-                <Text style={s.bankTxt}>{companySettings.bank_info}</Text>
-              </View>
-            : null
-          }
-
-          {/* Notes */}
-          {order.notes
-            ? <View style={s.notesBox}>
-                <Text style={s.notesTxt}>
-                  <Text style={{ fontWeight: 700 }}>Not: </Text>
-                  {order.notes}
-                </Text>
-              </View>
-            : null
-          }
-
-          {/* Footer */}
-          <View style={s.footer}>
-            <Text style={s.footerText}>{resolvedFooter}</Text>
-            <Text style={s.footerText}>Sipariş Ref: {shortId}</Text>
-          </View>
-
         </View>
-      </Page>
+
+        {/* Pricing block */}
+        {showPricing &&
+          <View style={s.pricingWrap}>
+            <Text style={s.prRow}>Ara Toplam: {fmt(araToplam)}</Text>
+            <Text style={s.prRow}>KDV (%{kdvRate}): {fmt(kdv)}</Text>
+            <Text style={s.prTotal}>Genel Toplam: {fmt(genelToplam)}</Text>
+          </View>
+        }
+
+        {/* Bank info — teklif only */}
+        {showPricing && companySettings?.bank_info
+          ? <View style={s.bankBox}>
+              <Text style={s.bankLbl}>BANKA BİLGİLERİ</Text>
+              <Text style={s.bankTxt}>{companySettings.bank_info}</Text>
+            </View>
+          : null
+        }
+
+        {/* Notes */}
+        {order.notes
+          ? <View style={s.notesBox}>
+              <Text style={s.notesTxt}>
+                <Text style={{ fontWeight: 700 }}>Not: </Text>
+                {order.notes}
+              </Text>
+            </View>
+          : null
+        }
+
+        {/* Footer */}
+        <View style={s.footer}>
+          <Text style={s.footerText}>{resolvedFooter}</Text>
+          <Text style={s.footerText}>Sipariş Ref: {shortId}</Text>
+        </View>
+
+      </View>
+    </Page>
+  )
+}
+
+// ── Single-order PDF component ────────────────────────────────────────────────
+
+function OrderPdf({
+  order,
+  itemImagesBase64,
+  logoBase64,
+  opts,
+  companySettings,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  order: any
+  itemImagesBase64: (string | null)[]
+  logoBase64: string
+  opts: PdfBuildOptions
+  companySettings?: CompanyPdfSettings | null
+}) {
+  return (
+    <Document>
+      <OrderPage
+        order={order}
+        itemImagesBase64={itemImagesBase64}
+        logoBase64={logoBase64}
+        opts={opts}
+        companySettings={companySettings}
+      />
     </Document>
   )
 }
 
-// ── Public renderer ───────────────────────────────────────────────────────────
+// ── Bulk PDF component (one Document, N pages) ───────────────────────────────
+
+function BulkOrderPdf({
+  entries,
+  logoBase64,
+  opts,
+  companySettings,
+}: {
+  entries: BulkOrderEntry[]
+  logoBase64: string
+  opts: Omit<PdfBuildOptions, 'customerName'>
+  companySettings?: CompanyPdfSettings | null
+}) {
+  return (
+    <Document>
+      {entries.map((entry, i) => (
+        <OrderPage
+          key={i}
+          order={entry.order}
+          itemImagesBase64={entry.itemImagesBase64}
+          logoBase64={logoBase64}
+          opts={{ ...opts, customerName: entry.customerName }}
+          companySettings={companySettings}
+        />
+      ))}
+    </Document>
+  )
+}
+
+// ── Public renderers ──────────────────────────────────────────────────────────
 
 export async function buildOrderPdf(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -439,6 +548,18 @@ export async function buildOrderPdf(
   companySettings?: CompanyPdfSettings | null,
 ): Promise<Buffer> {
   const element = React.createElement(OrderPdf, { order, itemImagesBase64, logoBase64, opts, companySettings })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bytes   = await renderToBuffer(element as any)
+  return Buffer.from(bytes)
+}
+
+export async function buildBulkOrderPdf(
+  entries: BulkOrderEntry[],
+  logoBase64: string,
+  opts: Omit<PdfBuildOptions, 'customerName'>,
+  companySettings?: CompanyPdfSettings | null,
+): Promise<Buffer> {
+  const element = React.createElement(BulkOrderPdf, { entries, logoBase64, opts, companySettings })
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bytes   = await renderToBuffer(element as any)
   return Buffer.from(bytes)
